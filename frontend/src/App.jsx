@@ -1,10 +1,20 @@
 import { useState, useEffect } from 'react'
 
-const API = '/api'
+const POLLINATIONS = 'https://gen.pollinations.ai'
+const APP_KEY = 'pk_fJFepOdA7LMOZ1LA'
+const STORAGE_KEY = 'storystudio_stories'
+const POLLEN_KEY = 'storystudio_pollen_key'
+
+function loadStories() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') }
+  catch { return [] }
+}
+function saveStories(stories) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(stories))
+}
 
 export default function App() {
-  const [user, setUser] = useState(null)
-  const [stories, setStories] = useState([])
+  const [stories, setStories] = useState(loadStories)
   const [currentStory, setCurrentStory] = useState(null)
   const [theme, setTheme] = useState('')
   const [pages, setPages] = useState(3)
@@ -15,104 +25,85 @@ export default function App() {
   const [error, setError] = useState(null)
   const [models, setModels] = useState({ text: [], image: [], audio: [] })
   const [modelsLoading, setModelsLoading] = useState(true)
+  const [pollenKey, setPollenKey] = useState(localStorage.getItem(POLLEN_KEY) || '')
+  const [showKeyInput, setShowKeyInput] = useState(false)
 
-  // Fetch dynamic models from Pollinations on mount
   useEffect(() => {
-    fetch(`${API}/models`)
+    fetch(`${POLLINATIONS}/models`)
       .then(r => r.json())
-      .then(data => setModels(data))
+      .then(data => {
+        const all = data.data || data
+        const grouped = { text: [], image: [], audio: [], video: [], '3d': [], embeddings: [] }
+        for (const m of all) {
+          const out = m.output_modalities?.[0] || 'text'
+          if (grouped[out]) grouped[out].push({ id: m.id, name: m.name || m.id })
+        }
+        setModels(grouped)
+      })
       .catch(() => setModels({ text: [{ id: 'openai', name: 'openai' }], image: [{ id: 'flux', name: 'flux' }], audio: [] }))
       .finally(() => setModelsLoading(false))
   }, [])
 
-  // Check for OAuth callback
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const code = params.get('code')
-    const verifier = sessionStorage.getItem('pkce_verifier')
-    if (code && verifier) {
-      exchangeCode(code, verifier)
-      window.history.replaceState({}, '', window.location.pathname)
-    }
-    checkAuth()
-  }, [])
-
-  const checkAuth = () => {
-    const key = localStorage.getItem('pollinations_key')
-    if (key) setUser({ key })
+  const saveKey = () => {
+    localStorage.setItem(POLLEN_KEY, pollenKey.trim())
+    setShowKeyInput(false)
   }
-
-  const login = async () => {
-    try {
-      const res = await fetch(`${API}/auth/login`, { method: 'POST' })
-      const { authUrl, verifier } = await res.json()
-      sessionStorage.setItem('pkce_verifier', verifier)
-      window.location.href = authUrl
-    } catch (err) {
-      setError('Login failed: ' + err.message)
-    }
-  }
-
-  const exchangeCode = async (code, verifier) => {
-    try {
-      const res = await fetch(`${API}/auth/exchange`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, verifier })
-      })
-      const data = await res.json()
-      if (data.success) {
-        localStorage.setItem('pollinations_key', 'connected')
-        setUser({ key: 'connected' })
-        sessionStorage.removeItem('pkce_verifier')
-      } else {
-        setError('Auth failed')
-      }
-    } catch (err) {
-      setError('Exchange failed: ' + err.message)
-    }
-  }
-
-  const logout = () => {
-    localStorage.removeItem('pollinations_key')
-    setUser(null)
-    setCurrentStory(null)
-    setStories([])
-  }
-
-  const loadStories = async () => {
-    try {
-      const res = await fetch(`${API}/stories`)
-      setStories(await res.json())
-    } catch (err) {
-      setError('Failed to load stories')
-    }
-  }
-
-  useEffect(() => { if (user) loadStories() }, [user])
 
   const generate = async (e) => {
     e.preventDefault()
     if (!theme.trim()) return
     setLoading(true)
     setError(null)
+    const key = pollenKey.trim()
     try {
-      const res = await fetch(`${API}/stories/generate`, {
+      // Step 1: Generate story text
+      const storyRes = await fetch(`${POLLINATIONS}/v1/chat/completions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(key ? { Authorization: `Bearer ${key}` } : {})
+        },
         body: JSON.stringify({
-          theme,
-          pages,
-          textModel,
-          imageModel,
-          generateAudio,
-          pollinationsKey: user.key
+          model: textModel,
+          max_tokens: 1024,
+          messages: [{
+            role: 'user',
+            content: `Write a fun children's story about "${theme}" in exactly ${pages} short paragraphs. Each paragraph is one page. Return ONLY a JSON array of strings, no other text. Example: ["Page 1 text...", "Page 2 text..."]`
+          }]
         })
       })
-      const data = await res.json()
-      if (data.error) throw new Error(data.error)
-      setCurrentStory(data)
-      loadStories()
+      if (!storyRes.ok) throw new Error(`Story generation failed (${storyRes.status})`)
+      const storyData = await storyRes.json()
+      let pageTexts = []
+      try {
+        const content = storyData.choices[0].message.content
+        pageTexts = JSON.parse(content)
+        if (!Array.isArray(pageTexts)) throw new Error('not array')
+      } catch {
+        pageTexts = storyData.choices[0].message.content.split(/\n\n+/).filter(Boolean).slice(0, pages)
+      }
+
+      // Step 2: Build pages with images
+      const storyPages = pageTexts.map((text, i) => {
+        const imageUrl = `${POLLINATIONS}/image/${imageModel}?prompt=${encodeURIComponent(text.slice(0, 200))}&width=512&height=512&app_key=${APP_KEY}${key ? `&key=${encodeURIComponent(key)}` : ''}`
+        const page = { pageNum: i + 1, text, imageUrl }
+        if (generateAudio) {
+          page.audioUrl = `${POLLINATIONS}/audio/${encodeURIComponent(text.slice(0, 100))}?voice=nova&app_key=${APP_KEY}${key ? `&key=${encodeURIComponent(key)}` : ''}`
+        }
+        return page
+      })
+
+      const story = {
+        id: Date.now(),
+        title: theme,
+        pages: storyPages,
+        created_at: new Date().toISOString()
+      }
+
+      const updated = [story, ...stories]
+      setStories(updated)
+      saveStories(updated)
+      setCurrentStory(story)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -120,26 +111,34 @@ export default function App() {
     }
   }
 
-  const viewStory = async (id) => {
-    const res = await fetch(`${API}/stories/${id}`)
-    setCurrentStory(await res.json())
-  }
-
-  const deleteStory = async (id) => {
-    await fetch(`${API}/stories/${id}`, { method: 'DELETE' })
+  const deleteStory = (id) => {
+    const updated = stories.filter(s => s.id !== id)
+    setStories(updated)
+    saveStories(updated)
     if (currentStory?.id === id) setCurrentStory(null)
-    loadStories()
   }
 
-  if (!user) {
+  if (!pollenKey && !showKeyInput) {
     return (
       <div className="splash">
         <div className="splash-card">
           <div className="logo">📖</div>
           <h1>StoryStudio</h1>
-          <p className="tagline">AI-powered storybooks in seconds.<br/>Bring your own pollen, we'll do the magic.</p>
-          <button className="btn-primary" onClick={login}>
-            Connect with Pollinations
+          <p className="tagline">AI-powered storybooks in seconds.<br/>Enter your Pollinations key to start creating.</p>
+          <div className="key-input-row">
+            <input
+              type="text"
+              value={pollenKey}
+              onChange={(e) => setPollenKey(e.target.value)}
+              placeholder="Paste your Pollinations API key (sk_...)"
+              className="input"
+            />
+          </div>
+          <button className="btn-primary" onClick={saveKey}>
+            Start Creating
+          </button>
+          <button className="btn-link" onClick={() => setShowKeyInput(true)}>
+            I don't have a key yet
           </button>
           {error && <div className="error">{error}</div>}
           <p className="fine-print">Uses Pollinations.ai API · 25% of pollen spend supports development</p>
@@ -154,7 +153,7 @@ export default function App() {
         <div className="brand">📖 StoryStudio</div>
         <nav>
           <button className="btn-ghost" onClick={() => setCurrentStory(null)}>New Story</button>
-          <button className="btn-ghost" onClick={logout}>Disconnect</button>
+          <button className="btn-ghost" onClick={() => { localStorage.removeItem(POLLEN_KEY); setPollenKey(''); setCurrentStory(null) }}>Change Key</button>
         </nav>
       </header>
 
@@ -249,7 +248,7 @@ export default function App() {
                 <h3>Your Stories</h3>
                 <div className="story-grid">
                   {stories.map(s => (
-                    <div key={s.id} className="story-card" onClick={() => viewStory(s.id)}>
+                    <div key={s.id} className="story-card" onClick={() => setCurrentStory(s)}>
                       <div className="story-card-title">{s.title}</div>
                       <button className="btn-delete" onClick={(e) => { e.stopPropagation(); deleteStory(s.id) }}>×</button>
                     </div>
