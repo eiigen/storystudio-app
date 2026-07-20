@@ -4,6 +4,7 @@ const POLLINATIONS = 'https://gen.pollinations.ai'
 const APP_KEY = 'pk_fJFepOdA7LMOZ1LA'
 const STORAGE_KEY = 'storystudio_stories'
 const POLLEN_KEY = 'storystudio_pollen_key'
+const REDIRECT_URI = window.location.origin + window.location.pathname
 
 function loadStories() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') }
@@ -28,6 +29,19 @@ export default function App() {
   const [pollenKey, setPollenKey] = useState(localStorage.getItem(POLLEN_KEY) || '')
   const [showKeyInput, setShowKeyInput] = useState(false)
 
+  // Check for OAuth callback (fragment flow — key in URL hash)
+  useEffect(() => {
+    const hash = window.location.hash.slice(1)
+    const params = new URLSearchParams(hash)
+    const apiKey = params.get('api_key')
+    if (apiKey) {
+      localStorage.setItem(POLLEN_KEY, apiKey)
+      setPollenKey(apiKey)
+      window.location.hash = ''
+    }
+  }, [])
+
+  // Fetch models on mount
   useEffect(() => {
     fetch(`${POLLINATIONS}/models`)
       .then(r => r.json())
@@ -43,6 +57,15 @@ export default function App() {
       .catch(() => setModels({ text: [{ id: 'openai', name: 'openai' }], image: [{ id: 'flux', name: 'flux' }], audio: [] }))
       .finally(() => setModelsLoading(false))
   }, [])
+
+  const connect = () => {
+    const params = new URLSearchParams({
+      redirect_uri: REDIRECT_URI,
+      client_id: APP_KEY,
+      scope: 'usage'
+    })
+    window.location.href = `https://enter.pollinations.ai/authorize?${params}`
+  }
 
   const saveKey = () => {
     localStorage.setItem(POLLEN_KEY, pollenKey.trim())
@@ -124,24 +147,16 @@ export default function App() {
         <div className="splash-card">
           <div className="logo">📖</div>
           <h1>StoryStudio</h1>
-          <p className="tagline">AI-powered storybooks in seconds.<br/>Enter your Pollinations key to start creating.</p>
-          <div className="key-input-row">
-            <input
-              type="text"
-              value={pollenKey}
-              onChange={(e) => setPollenKey(e.target.value)}
-              placeholder="Paste your Pollinations API key (sk_...)"
-              className="input"
-            />
-          </div>
-          <button className="btn-primary" onClick={saveKey}>
-            Start Creating
+          <p className="tagline">AI-powered storybooks in seconds.<br/>Connect your Pollinations account to start.</p>
+          <button className="btn-primary" onClick={connect}>
+            Connect with Pollinations
           </button>
-          <button className="btn-link" onClick={() => setShowKeyInput(true)}>
+          <button className="btn-link" onClick={() => window.open('https://enter.pollinations.ai/keys', '_blank')}>
             I don't have a key yet
           </button>
+          <p className="fine-print">or <button className="btn-link-inline" onClick={() => setShowKeyInput(true)}>paste a key manually</button></p>
           {error && <div className="error">{error}</div>}
-          <p className="fine-print">Uses Pollinations.ai API · 25% of pollen spend supports development</p>
+          <p className="fine-print">Uses Pollinations.ai API</p>
         </div>
       </div>
     )

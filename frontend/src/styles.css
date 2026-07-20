@@ -242,6 +242,20 @@ body {
   color: var(--accent2);
 }
 
+.btn-link-inline {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: inherit;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.btn-link-inline:hover {
+  color: var(--accent2);
+}
+
 @media (max-width: 600px) {
   .content { padding: 1rem; }
   .topbar { padding: 1rem; }
