@@ -35,5 +35,4 @@ The app calls `gen.pollinations.ai` directly from the browser — no backend ser
 
 ## 🔗 Related
 
-- **Source code (private):** [github.com/eiigen/storystudio](https://github.com/eiigen/storystudio)
 - **Pollinations API:** [gen.pollinations.ai](https://gen.pollinations.ai)
