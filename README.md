@@ -26,10 +26,6 @@ You enter a theme → Pollinations API generates story text → Images generated
 
 The app calls `gen.pollinations.ai` directly from the browser — no backend server needed. Everything runs client-side.
 
-## 🍯 Earnings
-
-This app uses the Pollinations app key `pk_fJFepOdA7LMOZ1LA`. When users generate content through the app, **25% markup** is credited to the app creator's balance. Users pay slightly more than base rates, and the markup goes to supporting development.
-
 ## 🏗️ Tech Stack
 
 - **Frontend:** React 18 + Vite
