@@ -104,6 +104,41 @@ body {
   margin-bottom: 1rem;
 }
 .input:focus { outline: none; border-color: var(--accent); }
+
+/* Model selectors */
+.model-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.model-group { display: flex; flex-direction: column; gap: 0.25rem; }
+.model-group label { color: var(--text2); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.select {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--surface2);
+  color: var(--text);
+  padding: 0.625rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+.select:focus { outline: none; border-color: var(--accent); }
+
+/* Audio toggle */
+.audio-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text2);
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+  cursor: pointer;
+}
+.audio-toggle input { accent-color: var(--accent); }
+.page-audio { width: 100%; margin-top: 0.75rem; }
+
 .page-selector {
   display: flex;
   align-items: center;

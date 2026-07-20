@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { initDB } from './db.js';
-import { storiesRouter } from './routes/stories.js';
+import { storiesRouter, modelsRouter } from './routes/stories.js';
 import { authRouter } from './routes/auth.js';
 
 const app = express();
@@ -14,6 +14,7 @@ const db = initDB();
 app.locals.db = db;
 
 app.use('/api/stories', storiesRouter);
+app.use('/api/models', modelsRouter);
 app.use('/api/auth', authRouter);
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 

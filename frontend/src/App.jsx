@@ -8,8 +8,22 @@ export default function App() {
   const [currentStory, setCurrentStory] = useState(null)
   const [theme, setTheme] = useState('')
   const [pages, setPages] = useState(3)
+  const [textModel, setTextModel] = useState('openai')
+  const [imageModel, setImageModel] = useState('flux')
+  const [generateAudio, setGenerateAudio] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [models, setModels] = useState({ text: [], image: [], audio: [] })
+  const [modelsLoading, setModelsLoading] = useState(true)
+
+  // Fetch dynamic models from Pollinations on mount
+  useEffect(() => {
+    fetch(`${API}/models`)
+      .then(r => r.json())
+      .then(data => setModels(data))
+      .catch(() => setModels({ text: [{ id: 'openai', name: 'openai' }], image: [{ id: 'flux', name: 'flux' }], audio: [] }))
+      .finally(() => setModelsLoading(false))
+  }, [])
 
   // Check for OAuth callback
   useEffect(() => {
@@ -48,8 +62,6 @@ export default function App() {
       })
       const data = await res.json()
       if (data.success) {
-        // We don't get the key back (it's server-side only in real impl)
-        // For now, mark as authenticated
         localStorage.setItem('pollinations_key', 'connected')
         setUser({ key: 'connected' })
         sessionStorage.removeItem('pkce_verifier')
@@ -88,7 +100,14 @@ export default function App() {
       const res = await fetch(`${API}/stories/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ theme, pages })
+        body: JSON.stringify({
+          theme,
+          pages,
+          textModel,
+          imageModel,
+          generateAudio,
+          pollinationsKey: user.key
+        })
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
@@ -155,6 +174,11 @@ export default function App() {
                   <div className="page-text">
                     <span className="page-num">Page {page.pageNum}</span>
                     <p>{page.text}</p>
+                    {page.audioUrl && (
+                      <audio controls src={page.audioUrl} className="page-audio">
+                        Your browser does not support audio.
+                      </audio>
+                    )}
                   </div>
                 </div>
               ))}
@@ -174,6 +198,26 @@ export default function App() {
                 placeholder="e.g., A dragon who loves baking cookies"
                 className="input"
               />
+
+              <div className="model-row">
+                <div className="model-group">
+                  <label>Text Model</label>
+                  <select value={textModel} onChange={e => setTextModel(e.target.value)} className="select" disabled={modelsLoading}>
+                    {modelsLoading ? <option>Loading...</option> : models.text?.map(m => (
+                      <option key={m.id} value={m.id}>{m.name || m.id}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="model-group">
+                  <label>Image Model</label>
+                  <select value={imageModel} onChange={e => setImageModel(e.target.value)} className="select" disabled={modelsLoading}>
+                    {modelsLoading ? <option>Loading...</option> : models.image?.map(m => (
+                      <option key={m.id} value={m.id}>{m.name || m.id}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               <div className="page-selector">
                 <label>Pages:</label>
                 {[2, 3, 4, 5].map(n => (
@@ -185,6 +229,16 @@ export default function App() {
                   >{n}</button>
                 ))}
               </div>
+
+              <label className="audio-toggle">
+                <input
+                  type="checkbox"
+                  checked={generateAudio}
+                  onChange={e => setGenerateAudio(e.target.checked)}
+                />
+                🔊 Generate audio narration (costs more pollen)
+              </label>
+
               <button type="submit" className="btn-primary" disabled={loading || !theme.trim()}>
                 {loading ? 'Generating...' : '✨ Generate Story'}
               </button>
