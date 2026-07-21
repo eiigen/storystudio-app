@@ -120,7 +120,7 @@ export default function App() {
 
       // Step 2: Build pages with images
       const storyPages = pageTexts.map((text, i) => {
-        const imageUrl = `${POLLINATIONS}/image/${encodeURIComponent(text.slice(0, 200))}?model=${imageModel}&width=512&height=512&app_key=${APP_KEY}${key ? `&key=${encodeURIComponent(key)}` : ''}`
+        const imageUrl = `${POLLINATIONS}/image/${encodeURIComponent(text.slice(0, 200))}?model=${imageModel}${key ? `&key=${encodeURIComponent(key)}` : ''}`
         const page = { pageNum: i + 1, text, imageUrl }
         if (generateAudio) {
           page.audioUrl = `${POLLINATIONS}/audio/${encodeURIComponent(text.slice(0, 100))}?voice=nova&app_key=${APP_KEY}${key ? `&key=${encodeURIComponent(key)}` : ''}`
