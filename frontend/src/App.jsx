@@ -26,6 +26,10 @@ export default function App() {
   const [error, setError] = useState(null)
   const [models, setModels] = useState({ text: [], image: [], audio: [] })
   const [modelsLoading, setModelsLoading] = useState(true)
+  const [textSearch, setTextSearch] = useState('')
+  const [imageSearch, setImageSearch] = useState('')
+  const [showTextDropdown, setShowTextDropdown] = useState(false)
+  const [showImageDropdown, setShowImageDropdown] = useState(false)
   const [pollenKey, setPollenKey] = useState(localStorage.getItem(POLLEN_KEY) || '')
   const [showKeyInput, setShowKeyInput] = useState(false)
 
@@ -115,7 +119,7 @@ export default function App() {
 
       // Step 2: Build pages with images
       const storyPages = pageTexts.map((text, i) => {
-        const imageUrl = `${POLLINATIONS}/image/${imageModel}?prompt=${encodeURIComponent(text.slice(0, 200))}&width=512&height=512&app_key=${APP_KEY}${key ? `&key=${encodeURIComponent(key)}` : ''}`
+        const imageUrl = `${POLLINATIONS}/image/${encodeURIComponent(text.slice(0, 200))}?model=${imageModel}&width=512&height=512&app_key=${APP_KEY}${key ? `&key=${encodeURIComponent(key)}` : ''}`
         const page = { pageNum: i + 1, text, imageUrl }
         if (generateAudio) {
           page.audioUrl = `${POLLINATIONS}/audio/${encodeURIComponent(text.slice(0, 100))}?voice=nova&app_key=${APP_KEY}${key ? `&key=${encodeURIComponent(key)}` : ''}`
@@ -224,19 +228,69 @@ export default function App() {
               <div className="model-row">
                 <div className="model-group">
                   <label>Text Model</label>
-                  <select value={textModel} onChange={e => setTextModel(e.target.value)} className="select" disabled={modelsLoading}>
-                    {modelsLoading ? <option>Loading...</option> : models.text?.map(m => (
-                      <option key={m.id} value={m.id}>{m.name || m.id}</option>
-                    ))}
-                  </select>
+                  <div className="search-wrap">
+                    <input
+                      type="text"
+                      value={textSearch}
+                      onChange={e => { setTextSearch(e.target.value); setShowTextDropdown(true) }}
+                      onFocus={() => setShowTextDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowTextDropdown(false), 200)}
+                      placeholder={modelsLoading ? 'Loading...' : textModel}
+                      className="input search-input"
+                      disabled={modelsLoading}
+                    />
+                    {showTextDropdown && !modelsLoading && (
+                      <div className="search-dropdown">
+                        {models.text?.filter(m =>
+                          m.id.toLowerCase().includes(textSearch.toLowerCase()) ||
+                          (m.name && m.name.toLowerCase().includes(textSearch.toLowerCase()))
+                        ).slice(0, 100).map(m => (
+                          <div
+                            key={m.id}
+                            className={`search-item ${textModel === m.id ? 'active' : ''}`}
+                            onMouseDown={() => { setTextModel(m.id); setTextSearch(''); setShowTextDropdown(false) }}
+                          >{m.name || m.id}</div>
+                        ))}
+                        {models.text?.filter(m =>
+                          m.id.toLowerCase().includes(textSearch.toLowerCase()) ||
+                          (m.name && m.name.toLowerCase().includes(textSearch.toLowerCase()))
+                        ).length === 0 && <div className="search-empty">No matches</div>}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="model-group">
                   <label>Image Model</label>
-                  <select value={imageModel} onChange={e => setImageModel(e.target.value)} className="select" disabled={modelsLoading}>
-                    {modelsLoading ? <option>Loading...</option> : models.image?.map(m => (
-                      <option key={m.id} value={m.id}>{m.name || m.id}</option>
-                    ))}
-                  </select>
+                  <div className="search-wrap">
+                    <input
+                      type="text"
+                      value={imageSearch}
+                      onChange={e => { setImageSearch(e.target.value); setShowImageDropdown(true) }}
+                      onFocus={() => setShowImageDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowImageDropdown(false), 200)}
+                      placeholder={modelsLoading ? 'Loading...' : imageModel}
+                      className="input search-input"
+                      disabled={modelsLoading}
+                    />
+                    {showImageDropdown && !modelsLoading && (
+                      <div className="search-dropdown">
+                        {models.image?.filter(m =>
+                          m.id.toLowerCase().includes(imageSearch.toLowerCase()) ||
+                          (m.name && m.name.toLowerCase().includes(imageSearch.toLowerCase()))
+                        ).slice(0, 100).map(m => (
+                          <div
+                            key={m.id}
+                            className={`search-item ${imageModel === m.id ? 'active' : ''}`}
+                            onMouseDown={() => { setImageModel(m.id); setImageSearch(''); setShowImageDropdown(false) }}
+                          >{m.name || m.id}</div>
+                        ))}
+                        {models.image?.filter(m =>
+                          m.id.toLowerCase().includes(imageSearch.toLowerCase()) ||
+                          (m.name && m.name.toLowerCase().includes(imageSearch.toLowerCase()))
+                        ).length === 0 && <div className="search-empty">No matches</div>}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
