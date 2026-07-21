@@ -49,7 +49,7 @@ export default function App() {
   useEffect(() => {
     const ctrl = new AbortController()
     const t = setTimeout(() => ctrl.abort(), 5000)
-    fetch(`${POLLINATIONS}/models`, { signal: ctrl.signal })
+    fetch(`${POLLINATIONS}/v1/models`, { signal: ctrl.signal })
       .then(r => r.json())
       .then(data => {
         const all = data.data || data
@@ -60,7 +60,19 @@ export default function App() {
         }
         setModels(grouped)
       })
-      .catch(() => setModels({ text: [{ id: 'openai', name: 'openai' }], image: [{ id: 'flux', name: 'flux' }], audio: [] }))
+      .catch(() => setModels({
+        text: [
+          { id: 'openai', name: 'openai' }, { id: 'openai-fast', name: 'openai-fast' },
+          { id: 'gpt-5.4-mini', name: 'gpt-5.4-mini' }, { id: 'claude-fast', name: 'claude-fast' },
+          { id: 'gemini-fast', name: 'gemini-fast' }, { id: 'deepseek', name: 'deepseek' }
+        ],
+        image: [
+          { id: 'flux', name: 'flux' }, { id: 'gptimage', name: 'gptimage' },
+          { id: 'sana', name: 'sana' }, { id: 'seedream', name: 'seedream' },
+          { id: 'ideogram-v4-turbo', name: 'ideogram-v4-turbo' }
+        ],
+        audio: []
+      }))
       .finally(() => { clearTimeout(t); setModelsLoading(false) })
     return () => { clearTimeout(t); ctrl.abort() }
   }, [])
