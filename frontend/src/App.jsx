@@ -1,13 +1,14 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import DEFAULT_MODELS from './models.json'
 
 const POLLINATIONS = 'https://gen.pollinations.ai'
 const APP_KEY = 'pk_fJFepOdA7LMOZ1LA'
 const STORAGE_KEY = 'storystudio_stories'
 const POLLEN_KEY = 'storystudio_pollen_key'
+const CUSTOM_STYLES_KEY = 'storystudio_custom_styles'
 const REDIRECT_URI = window.location.origin + window.location.pathname
 
-const STYLES = [
+const BUILTIN_STYLES = [
   { name: 'None', desc: '' },
   { name: 'Whimsical Watercolor', desc: 'Soft, dreamy watercolor painting with gentle color washes, visible brush textures, and ethereal light diffusion. The edges are soft and organic, colors bleed into each other naturally, creating a warm, storybook atmosphere with a hand-painted feel.' },
   { name: 'Dark Fantasy', desc: 'Gothic, high-contrast fantasy illustration with deep shadows, moody lighting, and rich jewel tones. Dramatic chiaroscuro, intricate textures, and a foreboding atmosphere reminiscent of classic fantasy book covers and dark fairy tales.' },
@@ -24,42 +25,92 @@ const STYLES = [
   { name: 'Vaporwave Sunset', desc: 'Retro-futuristic 1980s synthwave aesthetic with a neon grid-lined horizon, setting sun in gradient bands of pink, purple, and orange, and chrome-accented geometric shapes. Glitch art effects, CRT scanlines, and a nostalgic, liminal atmosphere.' },
   { name: 'Ink Wash', desc: 'Traditional East Asian ink wash painting with flowing black sumi-e brushstrokes, subtle gray gradients, and abundant negative space. Misty mountains, bamboo, and cherry blossoms rendered with minimal, graceful strokes on textured rice paper.' },
   { name: 'Art Nouveau', desc: 'Elegant turn-of-the-century decorative style with flowing organic curves, intricate floral motifs, and gilded borders. Figures are elongated and graceful, framed by sinuous vines and peacock feathers, with muted earthy tones accented by gold leaf.' },
+  { name: 'Manga Shōnen', desc: 'High-energy Japanese action manga with dynamic speed lines, exaggerated expressions, and dramatic panel compositions. Bold black screentones, intense stare-downs, and explosive impact frames with gritty cross-hatching and sweat drops.' },
+  { name: 'Stained Glass', desc: 'Gothic cathedral stained glass with bold black leading, jewel-toned translucent panels, and radiant backlighting. Light streams through in luminous shafts, illuminating dust motes in a sacred, reverent atmosphere.' },
+  { name: 'Flat Vector', desc: 'Modern minimalist flat design illustration with clean geometric shapes, a harmonious limited color palette, and absolutely zero gradients. Simple, elegant, and professional with subtle shadows and a contemporary app-icon aesthetic.' },
 ]
 
-function loadStories() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') }
-  catch { return [] }
-}
-function saveStories(stories) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(stories))
+function StoryImage({ url, text, retryKey, onStatus }) {
+  const [status, setStatus] = useState('loading')
+  const [attempt, setAttempt] = useState(0)
+
+  useEffect(() => { setStatus('loading'); setAttempt(0) }, [url, retryKey])
+
+  const handleError = () => {
+    if (attempt < 2) {
+      setAttempt(a => a + 1)
+      setStatus('retrying')
+    } else {
+      setStatus('error')
+      onStatus && onStatus('error')
+    }
+  }
+
+  const handleLoad = () => { setStatus('loaded'); onStatus && onStatus('loaded') }
+
+  const retry = (e) => {
+    e.stopPropagation()
+    if (attempt < 2) {
+      setAttempt(a => a + 1)
+      setStatus('loading')
+    }
+  }
+
+  const srcWithAttempt = attempt === 0 ? url : url + (url.includes('?') ? '&' : '?') + `_r=${attempt}`
+
+  return (
+    <div className={`story-image story-image-${status}`}>
+      <img src={srcWithAttempt} alt={text.slice(0, 60)} onLoad={handleLoad} onError={handleError} />
+      {status === 'loading' && <div className="image-overlay"><div className="spinner" /><span>Generating...</span></div>}
+      {status === 'retrying' && <div className="image-overlay"><div className="spinner" /><span>Retrying...</span></div>}
+      {status === 'error' && (
+        <div className="image-overlay image-error">
+          <span>Failed to load</span>
+          {attempt < 2 && <button className="btn-retry" onClick={retry}>Retry</button>}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function App() {
-  const [stories, setStories] = useState(loadStories)
+  const [stories, setStories] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') } catch { return [] }
+  })
   const [currentStory, setCurrentStory] = useState(null)
   const [theme, setTheme] = useState('')
   const [pages, setPages] = useState(3)
+  const [customPages, setCustomPages] = useState('')
+  const [useCustomPages, setUseCustomPages] = useState(false)
   const [textModel, setTextModel] = useState('openai')
   const [imageModel, setImageModel] = useState('flux')
   const [artStyle, setArtStyle] = useState('None')
-  const [styleSearch, setStyleSearch] = useState('')
   const [showStyleDropdown, setShowStyleDropdown] = useState(false)
+  const [styleSearch, setStyleSearch] = useState('')
   const [generateAudio, setGenerateAudio] = useState(false)
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [progressText, setProgressText] = useState('')
-  const [imageStates, setImageStates] = useState({})
   const [error, setError] = useState(null)
   const [models, setModels] = useState(DEFAULT_MODELS)
-  const [modelsLoading, setModelsLoading] = useState(false)
   const [textSearch, setTextSearch] = useState('')
   const [imageSearch, setImageSearch] = useState('')
   const [showTextDropdown, setShowTextDropdown] = useState(false)
   const [showImageDropdown, setShowImageDropdown] = useState(false)
   const [pollenKey, setPollenKey] = useState(localStorage.getItem(POLLEN_KEY) || '')
   const [showKeyInput, setShowKeyInput] = useState(false)
+  const [customStyles, setCustomStyles] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(CUSTOM_STYLES_KEY) || '[]') } catch { return [] }
+  })
+  const [showCustomStyleForm, setShowCustomStyleForm] = useState(false)
+  const [newStyleName, setNewStyleName] = useState('')
+  const [newStyleDesc, setNewStyleDesc] = useState('')
+  const [retryKey, setRetryKey] = useState(0)
+  const [imageStatuses, setImageStatuses] = useState({})
 
-  // Check for OAuth callback (fragment flow — key in URL hash)
+  useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(stories)) }, [stories])
+  useEffect(() => { localStorage.setItem(CUSTOM_STYLES_KEY, JSON.stringify(customStyles)) }, [customStyles])
+
   useEffect(() => {
     const hash = window.location.hash.slice(1)
     const params = new URLSearchParams(hash)
@@ -71,7 +122,6 @@ export default function App() {
     }
   }, [])
 
-  // Fetch latest models from API in background (start with hardcoded list)
   useEffect(() => {
     const ctrl = new AbortController()
     const t = setTimeout(() => ctrl.abort(), 5000)
@@ -81,22 +131,17 @@ export default function App() {
         const all = data.data || data
         const grouped = { text: [], image: [], audio: [], video: [], '3d': [], embeddings: [] }
         for (const m of all) {
-          const out = m.output_modalities?.[0] || 'text'
-          if (grouped[out]) grouped[out].push({ id: m.id, name: m.name || m.id })
+          if (grouped[m.output_modalities?.[0] || 'text']) grouped[m.output_modalities?.[0] || 'text'].push({ id: m.id, name: m.name || m.id })
         }
         if (grouped.text.length > 0) setModels(grouped)
       })
-      .catch(() => {}) // already have DEFAULT_MODELS
+      .catch(() => {})
       .finally(() => { clearTimeout(t) })
     return () => { clearTimeout(t); ctrl.abort() }
   }, [])
 
   const connect = () => {
-    const params = new URLSearchParams({
-      redirect_uri: REDIRECT_URI,
-      client_id: APP_KEY,
-      scope: 'usage'
-    })
+    const params = new URLSearchParams({ redirect_uri: REDIRECT_URI, client_id: APP_KEY, scope: 'usage' })
     window.location.href = `https://enter.pollinations.ai/authorize?${params}`
   }
 
@@ -105,94 +150,113 @@ export default function App() {
     setShowKeyInput(false)
   }
 
+  const saveCustomStyle = () => {
+    if (!newStyleName.trim() || !newStyleDesc.trim()) return
+    setCustomStyles(prev => [...prev, { name: newStyleName.trim(), desc: newStyleDesc.trim() }])
+    setNewStyleName(''); setNewStyleDesc(''); setShowCustomStyleForm(false)
+  }
+
+  const deleteCustomStyle = (idx) => setCustomStyles(prev => prev.filter((_, i) => i !== idx))
+
+  const exportStories = () => {
+    const data = JSON.stringify({ stories, customStyles, exportedAt: new Date().toISOString() }, null, 2)
+    const blob = new Blob([data], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = `storystudio-export-${Date.now()}.json`; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const importStories = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result)
+        if (data.stories && Array.isArray(data.stories)) {
+          setStories(prev => [...data.stories, ...prev])
+        }
+        if (data.customStyles && Array.isArray(data.customStyles)) {
+          setCustomStyles(prev => [...data.customStyles, ...prev])
+        }
+      } catch { alert('Invalid file') }
+    }
+    reader.readAsText(file)
+  }
+
+  const allStyles = [...BUILTIN_STYLES, ...customStyles]
+
   const generate = async (e) => {
     e.preventDefault()
     if (!theme.trim()) return
-    setLoading(true)
-    setError(null)
-    setProgress(0)
-    setProgressText('Starting...')
+    let pageCount
+    if (useCustomPages) {
+      pageCount = parseInt(customPages)
+      if (isNaN(pageCount) || pageCount < 1 || pageCount > 50) {
+        setError('Please enter a page number between 1 and 50')
+        return
+      }
+    } else {
+      pageCount = pages
+    }
+    setLoading(true); setError(null); setProgress(0); setProgressText('Starting...'); setImageStatuses({})
     const key = pollenKey.trim()
     let genTimeout
     let genCtrl = new AbortController()
     try {
-      // Step 1: Generate story text (90s timeout)
-      setProgress(10)
-      setProgressText('Generating story text...')
-      genTimeout = setTimeout(() => genCtrl.abort(), 90000)
+      setProgress(5); setProgressText('Preparing story prompt...')
+      genTimeout = setTimeout(() => genCtrl.abort(), 120000)
+      const prompt = `Write a compelling, vivid, emotionally engaging children's story about "${theme}" in exactly ${pageCount} short paragraphs. Each paragraph is one page. Each page should have rich sensory details, interesting characters, and a narrative arc. End with a satisfying conclusion. Return ONLY a JSON array of strings, no other text or formatting. Example: ["Page 1 text...", "Page 2 text..."]`
       const storyRes = await fetch(`${POLLINATIONS}/v1/chat/completions`, {
-        signal: genCtrl.signal,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(key ? { Authorization: `Bearer ${key}` } : {})
-        },
-        body: JSON.stringify({
-          model: textModel,
-          max_tokens: 1024,
-          messages: [{
-            role: 'user',
-            content: `Write a fun children's story about "${theme}" in exactly ${pages} short paragraphs. Each paragraph is one page. Return ONLY a JSON array of strings, no other text. Example: ["Page 1 text...", "Page 2 text..."]`
-          }]
-        })
+        signal: genCtrl.signal, method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(key ? { Authorization: `Bearer ${key}` } : {}) },
+        body: JSON.stringify({ model: textModel, max_tokens: 2048, messages: [{ role: 'user', content: prompt }] })
       })
       clearTimeout(genTimeout)
       if (!storyRes.ok) throw new Error(`Story generation failed (${storyRes.status})`)
       const storyData = await storyRes.json()
-      setProgress(50)
-      setProgressText('Parsing story...')
+      setProgress(40); setProgressText('Parsing story text...')
       let pageTexts = []
       try {
         const content = storyData.choices[0].message.content
         pageTexts = JSON.parse(content)
         if (!Array.isArray(pageTexts)) throw new Error('not array')
       } catch {
-        pageTexts = storyData.choices[0].message.content.split(/\n\n+/).filter(Boolean).slice(0, pages)
+        pageTexts = storyData.choices[0].message.content.split(/\n\n+/).filter(Boolean).slice(0, pageCount)
       }
-
-      // Step 2: Build pages with images
-      setProgress(60)
-      setProgressText('Preparing images...')
-      const style = STYLES.find(s => s.name === artStyle)
+      setProgress(50); setProgressText('Preparing image prompts...')
+      const style = allStyles.find(s => s.name === artStyle)
       const stylePrefix = style?.desc ? style.desc + '. ' : ''
       const storyPages = pageTexts.map((text, i) => {
         const imagePrompt = stylePrefix + text
-        const imageUrl = `${POLLINATIONS}/image/${encodeURIComponent(imagePrompt.slice(0, 300))}?model=${imageModel}${key ? `&key=${encodeURIComponent(key)}` : ''}`
+        const imageUrl = `${POLLINATIONS}/image/${encodeURIComponent(imagePrompt.slice(0, 300))}?model=${imageModel}${key ? `&key=${encodeURIComponent(key)}` : ''}${APP_KEY ? `&app_key=${APP_KEY}` : ''}`
         const page = { pageNum: i + 1, text, imageUrl }
         if (generateAudio) {
           page.audioUrl = `${POLLINATIONS}/audio/${encodeURIComponent(text.slice(0, 100))}?voice=nova${key ? `&key=${encodeURIComponent(key)}` : ''}`
         }
         return page
       })
-
-      const story = {
-        id: Date.now(),
-        title: theme,
-        pages: storyPages,
-        created_at: new Date().toISOString()
-      }
-
-      setProgress(100)
-      setProgressText('Done!')
-
-      const updated = [story, ...stories]
-      setStories(updated)
-      saveStories(updated)
+      setProgress(100); setProgressText('Done!')
+      const story = { id: Date.now(), title: theme, pages: storyPages, created_at: new Date().toISOString() }
+      setStories(prev => [story, ...prev])
       setCurrentStory(story)
     } catch (err) {
       clearTimeout(genTimeout)
       setError(err.name === 'AbortError' ? 'Request timed out — try again' : err.message)
     } finally {
-      setLoading(false)
-      setProgress(0)
-      setProgressText('')
+      setLoading(false); setProgress(0); setProgressText('')
     }
   }
 
+  const handleImageStatus = useCallback((pageNum, status) => {
+    if (status === 'error') setImageStatuses(prev => ({ ...prev, [pageNum]: 'error' }))
+  }, [])
+
+  const retryAllImages = () => setRetryKey(k => k + 1)
+
   const deleteStory = (id) => {
-    const updated = stories.filter(s => s.id !== id)
-    setStories(updated)
-    saveStories(updated)
+    setStories(prev => prev.filter(s => s.id !== id))
     if (currentStory?.id === id) setCurrentStory(null)
   }
 
@@ -202,37 +266,21 @@ export default function App() {
         <div className="splash-card">
           {showKeyInput ? (
             <>
-              <div className="logo">📖</div>
-              <h1>Enter API Key</h1>
+              <div className="logo">📖</div><h1>Enter API Key</h1>
               <p className="tagline">Paste your Pollinations secret key.</p>
               <div className="key-input-row">
-                <input
-                  type="text"
-                  value={pollenKey}
-                  onChange={(e) => setPollenKey(e.target.value)}
-                  placeholder="sk_..."
-                  className="input"
-                />
+                <input type="text" value={pollenKey} onChange={(e) => setPollenKey(e.target.value)} placeholder="sk_..." className="input" />
               </div>
-              <button className="btn-primary" onClick={saveKey}>
-                Start Creating
-              </button>
-              <button className="btn-link" onClick={() => setShowKeyInput(false)}>
-                ← Back
-              </button>
+              <button className="btn-primary" onClick={saveKey}>Start Creating</button>
+              <button className="btn-link" onClick={() => setShowKeyInput(false)}>← Back</button>
               {error && <div className="error">{error}</div>}
             </>
           ) : (
             <>
-              <div className="logo">📖</div>
-              <h1>StoryStudio</h1>
+              <div className="logo">📖</div><h1>StoryStudio</h1>
               <p className="tagline">AI-powered storybooks in seconds.<br/>Connect your Pollinations account to start.</p>
-              <button className="btn-primary" onClick={connect}>
-                Connect with Pollinations
-              </button>
-              <button className="btn-link" onClick={() => setShowKeyInput(true)}>
-                Paste a key manually
-              </button>
+              <button className="btn-primary" onClick={connect}>Connect with Pollinations</button>
+              <button className="btn-link" onClick={() => setShowKeyInput(true)}>Paste a key manually</button>
               {error && <div className="error">{error}</div>}
               <p className="fine-print">Uses Pollinations.ai API</p>
             </>
@@ -247,40 +295,30 @@ export default function App() {
       <header className="topbar">
         <div className="brand">📖 StoryStudio</div>
         <nav>
-          <button className="btn-ghost" onClick={() => setCurrentStory(null)}>New Story</button>
+          <label className="btn-ghost file-input">Import<input type="file" accept=".json" onChange={importStories} hidden /></label>
+          <button className="btn-ghost" onClick={exportStories}>Export</button>
           <button className="btn-ghost" onClick={() => { localStorage.removeItem(POLLEN_KEY); setPollenKey(''); setCurrentStory(null) }}>Change Key</button>
         </nav>
       </header>
-
       <main className="content">
         {error && <div className="error">{error}</div>}
-
         {currentStory && currentStory.pages ? (
           <div className="story-viewer">
             <button className="btn-ghost back" onClick={() => setCurrentStory(null)}>← Back</button>
-            <h2>{currentStory.title}</h2>
+            <div className="story-viewer-header">
+              <h2>{currentStory.title}</h2>
+              {imageStatuses.size > 0 && (
+                <span className="image-status">{Object.values(imageStatuses).filter(v=>v==='error').length} image(s) failed</span>
+              )}
+            </div>
             <div className="pages">
               {currentStory.pages.map((page) => (
                 <div key={page.pageNum} className="page">
-                  <div className="page-image">
-                    {page.imageUrl && (
-                      <img
-                        src={page.imageUrl}
-                        alt={`Page ${page.pageNum}`}
-                        className="page-img"
-                        onLoad={(e) => { e.target.classList.add('loaded') }}
-                        onError={(e) => { e.target.classList.add('error'); e.target.alt = 'Failed to load image' }}
-                      />
-                    )}
-                  </div>
+                  <StoryImage url={page.imageUrl} text={page.text} retryKey={retryKey} onStatus={(s) => handleImageStatus(page.pageNum, s)} />
                   <div className="page-text">
                     <span className="page-num">Page {page.pageNum}</span>
                     <p>{page.text}</p>
-                    {page.audioUrl && (
-                      <audio controls src={page.audioUrl} className="page-audio">
-                        Your browser does not support audio.
-                      </audio>
-                    )}
+                    {page.audioUrl && <audio controls src={page.audioUrl} className="page-audio">Your browser does not support audio.</audio>}
                   </div>
                 </div>
               ))}
@@ -288,49 +326,20 @@ export default function App() {
           </div>
         ) : (
           <div className="generator">
-            <div className="hero">
-              <h2>Create a Storybook</h2>
-              <p>Enter a theme and watch AI write & illustrate your story</p>
-            </div>
+            <div className="hero"><h2>Create a Storybook</h2><p>Enter a theme and watch AI write & illustrate your story</p></div>
             <form onSubmit={generate} className="generate-form">
-              <input
-                type="text"
-                value={theme}
-                onChange={(e) => setTheme(e.target.value)}
-                placeholder="e.g., A dragon who loves baking cookies"
-                className="input"
-              />
+              <input type="text" value={theme} onChange={(e) => setTheme(e.target.value)} placeholder="e.g., A dragon who loves baking cookies" className="input" />
 
               <div className="model-row">
                 <div className="model-group">
                   <label>Text Model</label>
                   <div className="search-wrap">
-                    <input
-                      type="text"
-                      value={textSearch}
-                      onChange={e => { setTextSearch(e.target.value); setShowTextDropdown(true) }}
-                      onFocus={() => setShowTextDropdown(true)}
-                      onBlur={() => setTimeout(() => setShowTextDropdown(false), 200)}
-                      placeholder={modelsLoading ? 'Loading...' : textModel}
-                      className="input search-input"
-                      disabled={modelsLoading}
-                    />
-                    {showTextDropdown && !modelsLoading && (
+                    <input type="text" value={textSearch} onChange={e => { setTextSearch(e.target.value); setShowTextDropdown(true) }} onFocus={() => setShowTextDropdown(true)} onBlur={() => setTimeout(() => setShowTextDropdown(false), 200)} placeholder={textModel} className="input" />
+                    {showTextDropdown && (
                       <div className="search-dropdown">
-                        {models.text?.filter(m =>
-                          m.id.toLowerCase().includes(textSearch.toLowerCase()) ||
-                          (m.name && m.name.toLowerCase().includes(textSearch.toLowerCase()))
-                        ).slice(0, 100).map(m => (
-                          <div
-                            key={m.id}
-                            className={`search-item ${textModel === m.id ? 'active' : ''}`}
-                            onMouseDown={() => { setTextModel(m.id); setTextSearch(''); setShowTextDropdown(false) }}
-                          >{m.name || m.id}</div>
+                        {models.text?.filter(m => m.id.toLowerCase().includes(textSearch.toLowerCase())).slice(0, 100).map(m => (
+                          <div key={m.id} className={`search-item ${textModel === m.id ? 'active' : ''}`} onMouseDown={() => { setTextModel(m.id); setTextSearch(''); setShowTextDropdown(false) }}>{m.name || m.id}</div>
                         ))}
-                        {models.text?.filter(m =>
-                          m.id.toLowerCase().includes(textSearch.toLowerCase()) ||
-                          (m.name && m.name.toLowerCase().includes(textSearch.toLowerCase()))
-                        ).length === 0 && <div className="search-empty">No matches</div>}
                       </div>
                     )}
                   </div>
@@ -338,32 +347,12 @@ export default function App() {
                 <div className="model-group">
                   <label>Image Model</label>
                   <div className="search-wrap">
-                    <input
-                      type="text"
-                      value={imageSearch}
-                      onChange={e => { setImageSearch(e.target.value); setShowImageDropdown(true) }}
-                      onFocus={() => setShowImageDropdown(true)}
-                      onBlur={() => setTimeout(() => setShowImageDropdown(false), 200)}
-                      placeholder={modelsLoading ? 'Loading...' : imageModel}
-                      className="input search-input"
-                      disabled={modelsLoading}
-                    />
-                    {showImageDropdown && !modelsLoading && (
+                    <input type="text" value={imageSearch} onChange={e => { setImageSearch(e.target.value); setShowImageDropdown(true) }} onFocus={() => setShowImageDropdown(true)} onBlur={() => setTimeout(() => setShowImageDropdown(false), 200)} placeholder={imageModel} className="input" />
+                    {showImageDropdown && (
                       <div className="search-dropdown">
-                        {models.image?.filter(m =>
-                          m.id.toLowerCase().includes(imageSearch.toLowerCase()) ||
-                          (m.name && m.name.toLowerCase().includes(imageSearch.toLowerCase()))
-                        ).slice(0, 100).map(m => (
-                          <div
-                            key={m.id}
-                            className={`search-item ${imageModel === m.id ? 'active' : ''}`}
-                            onMouseDown={() => { setImageModel(m.id); setImageSearch(''); setShowImageDropdown(false) }}
-                          >{m.name || m.id}</div>
+                        {models.image?.filter(m => m.id.toLowerCase().includes(imageSearch.toLowerCase())).slice(0, 100).map(m => (
+                          <div key={m.id} className={`search-item ${imageModel === m.id ? 'active' : ''}`} onMouseDown={() => { setImageModel(m.id); setImageSearch(''); setShowImageDropdown(false) }}>{m.name || m.id}</div>
                         ))}
-                        {models.image?.filter(m =>
-                          m.id.toLowerCase().includes(imageSearch.toLowerCase()) ||
-                          (m.name && m.name.toLowerCase().includes(imageSearch.toLowerCase()))
-                        ).length === 0 && <div className="search-empty">No matches</div>}
                       </div>
                     )}
                   </div>
@@ -373,53 +362,61 @@ export default function App() {
               <div className="model-group">
                 <label>Art Style</label>
                 <div className="search-wrap">
-                  <input
-                    type="text"
-                    value={styleSearch}
-                    onChange={e => { setStyleSearch(e.target.value); setShowStyleDropdown(true) }}
-                    onFocus={() => setShowStyleDropdown(true)}
-                    onBlur={() => setTimeout(() => setShowStyleDropdown(false), 200)}
-                    placeholder={artStyle}
-                    className="input search-input"
-                  />
+                  <input type="text" value={styleSearch} onChange={e => { setStyleSearch(e.target.value); setShowStyleDropdown(true) }} onFocus={() => setShowStyleDropdown(true)} onBlur={() => setTimeout(() => setShowStyleDropdown(false), 200)} placeholder={artStyle} className="input" />
                   {showStyleDropdown && (
                     <div className="search-dropdown">
-                      {STYLES.filter(s =>
-                        s.name.toLowerCase().includes(styleSearch.toLowerCase()) ||
-                        s.desc.toLowerCase().includes(styleSearch.toLowerCase())
-                      ).map(s => (
-                        <div
-                          key={s.name}
-                          className={`search-item ${artStyle === s.name ? 'active' : ''}`}
-                          onMouseDown={() => { setArtStyle(s.name); setStyleSearch(''); setShowStyleDropdown(false) }}
-                        >
+                      {allStyles.filter(s => s.name.toLowerCase().includes(styleSearch.toLowerCase()) || s.desc.toLowerCase().includes(styleSearch.toLowerCase())).map(s => (
+                        <div key={s.name} className={`search-item ${artStyle === s.name ? 'active' : ''}`} onMouseDown={() => { setArtStyle(s.name); setStyleSearch(''); setShowStyleDropdown(false) }}>
                           <div style={{fontWeight:600}}>{s.name}</div>
-                          {s.desc && <div style={{fontSize:'0.75rem',color:'var(--text2)',marginTop:2,lineHeight:1.3}}>{s.desc}</div>}
+                          {s.desc && <div className="style-desc">{s.desc}</div>}
                         </div>
                       ))}
+                      <div className="search-item add-custom-style" onMouseDown={() => setShowCustomStyleForm(true)}><div style={{fontWeight:600,color:'var(--accent)'}}>+ Add your own style</div></div>
                     </div>
                   )}
                 </div>
               </div>
 
+              {showCustomStyleForm && (
+                <div className="custom-style-form">
+                  <input type="text" value={newStyleName} onChange={(e) => setNewStyleName(e.target.value)} placeholder="Style name (e.g., My Anime Style)" className="input" />
+                  <textarea value={newStyleDesc} onChange={(e) => setNewStyleDesc(e.target.value)} placeholder="Describe the visual style in detail (e.g., Vibrant cel-shaded anime with dramatic lighting, sharp line art...)" rows={3} className="input" />
+                  <div className="custom-style-form-buttons">
+                    <button type="button" className="btn-primary" onClick={saveCustomStyle}>Save Style</button>
+                    <button type="button" className="btn-link" onClick={() => setShowCustomStyleForm(false)}>Cancel</button>
+                  </div>
+                </div>
+              )}
+
+              {customStyles.length > 0 && (
+                <div className="custom-styles-list">
+                  <label>Your Custom Styles:</label>
+                  <div className="custom-styles-chips">
+                    {customStyles.map((s, i) => (
+                      <span key={i} className={`style-chip ${artStyle === s.name ? 'active' : ''}`} onClick={() => setArtStyle(s.name)}>
+                        {s.name}
+                        <button className="chip-delete" onClick={(e) => { e.stopPropagation(); deleteCustomStyle(i) }}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="page-selector">
                 <label>Pages:</label>
-                {[2, 3, 4, 5].map(n => (
-                  <button
-                    key={n}
-                    type="button"
-                    className={`btn-page ${pages === n ? 'active' : ''}`}
-                    onClick={() => setPages(n)}
-                  >{n}</button>
-                ))}
+                <div className="page-options">
+                  {[2, 3, 4, 5].map(n => (
+                    <button key={n} type="button" className={`btn-page ${!useCustomPages && pages === n ? 'active' : ''}`} onClick={() => { setPages(n); setUseCustomPages(false) }}>{n}</button>
+                  ))}
+                  <button type="button" className={`btn-page ${useCustomPages ? 'active' : ''}`} onClick={() => setUseCustomPages(true)}>Custom</button>
+                </div>
+                {useCustomPages && (
+                  <input type="number" min="1" max="50" value={customPages} onChange={(e) => setCustomPages(e.target.value)} placeholder="1-50" className="input page-custom-input" />
+                )}
               </div>
 
               <label className="audio-toggle">
-                <input
-                  type="checkbox"
-                  checked={generateAudio}
-                  onChange={e => setGenerateAudio(e.target.checked)}
-                />
+                <input type="checkbox" checked={generateAudio} onChange={e => setGenerateAudio(e.target.checked)} />
                 🔊 Generate audio narration (costs more pollen)
               </label>
 
@@ -439,8 +436,9 @@ export default function App() {
                 <h3>Your Stories</h3>
                 <div className="story-grid">
                   {stories.map(s => (
-                    <div key={s.id} className="story-card" onClick={() => setCurrentStory(s)}>
+                    <div key={s.id} className="story-card" onClick={() => { setCurrentStory(s); setRetryKey(k => k + 1) }}>
                       <div className="story-card-title">{s.title}</div>
+                      <div className="story-card-meta">{s.pages.length} pages</div>
                       <button className="btn-delete" onClick={(e) => { e.stopPropagation(); deleteStory(s.id) }}>×</button>
                     </div>
                   ))}
