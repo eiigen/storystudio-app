@@ -30,6 +30,18 @@ const BUILTIN_STYLES = [
   { name: 'Flat Vector', desc: 'Modern minimalist flat design illustration with clean geometric shapes, a harmonious limited color palette, and absolutely zero gradients. Simple, elegant, and professional with subtle shadows and a contemporary app-icon aesthetic.' },
 ]
 
+const RESOLUTIONS = [
+  { name: 'Square SD', w: 512, h: 512 },
+  { name: 'Square HD', w: 1024, h: 1024 },
+  { name: 'Portrait SD', w: 512, h: 768 },
+  { name: 'Portrait HD', w: 1024, h: 1536 },
+  { name: 'Landscape SD', w: 768, h: 512 },
+  { name: 'Landscape HD', w: 1536, h: 1024 },
+  { name: 'Social 1:1', w: 1080, h: 1080 },
+  { name: 'Cinema 16:9', w: 1920, h: 1080 },
+  { name: 'Custom', w: 0, h: 0 },
+]
+
 function StoryImage({ url, text, retryKey, onStatus }) {
   const [status, setStatus] = useState('loading')
   const [attempt, setAttempt] = useState(0)
@@ -107,6 +119,9 @@ export default function App() {
   const [newStyleDesc, setNewStyleDesc] = useState('')
   const [retryKey, setRetryKey] = useState(0)
   const [imageStatuses, setImageStatuses] = useState({})
+  const [resolution, setResolution] = useState('Square SD')
+  const [customW, setCustomW] = useState('')
+  const [customH, setCustomH] = useState('')
 
   useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(stories)) }, [stories])
   useEffect(() => { localStorage.setItem(CUSTOM_STYLES_KEY, JSON.stringify(customStyles)) }, [customStyles])
@@ -228,9 +243,12 @@ export default function App() {
       setProgress(50); setProgressText('Preparing image prompts...')
       const style = allStyles.find(s => s.name === artStyle)
       const stylePrefix = style?.desc ? style.desc + '. ' : ''
+      const res = RESOLUTIONS.find(r => r.name === resolution)
+      const w = resolution === 'Custom' ? parseInt(customW) || 512 : (res?.w || 512)
+      const h = resolution === 'Custom' ? parseInt(customH) || 512 : (res?.h || 512)
       const storyPages = pageTexts.map((text, i) => {
-        const imagePrompt = stylePrefix + text
-        const imageUrl = `${POLLINATIONS}/image/${encodeURIComponent(imagePrompt.slice(0, 300))}?model=${imageModel}${key ? `&key=${encodeURIComponent(key)}` : ''}${APP_KEY ? `&app_key=${APP_KEY}` : ''}`
+        const imagePrompt = 'Children\'s book illustration, ' + stylePrefix + text
+        const imageUrl = `${POLLINATIONS}/image/${encodeURIComponent(imagePrompt.slice(0, 300))}?model=${imageModel}&width=${w}&height=${h}${key ? `&key=${encodeURIComponent(key)}` : ''}`
         const page = { pageNum: i + 1, text, imageUrl }
         if (generateAudio) {
           page.audioUrl = `${POLLINATIONS}/audio/${encodeURIComponent(text.slice(0, 100))}?voice=nova${key ? `&key=${encodeURIComponent(key)}` : ''}`
@@ -401,6 +419,28 @@ export default function App() {
                   </div>
                 </div>
               )}
+
+              <div className="model-group">
+                <label>Resolution</label>
+                <div className="search-wrap" style={{position:'relative'}}>
+                  <input type="text" value={resolution === 'Custom' ? `Custom (${customW||'?'}x${customH||'?'})` : resolution} onChange={e => { const m = RESOLUTIONS.find(r => r.name.toLowerCase().includes(e.target.value.toLowerCase())); if(m) setResolution(m.name) }} placeholder={resolution} className="input" />
+                  <div className="search-dropdown" style={{display:'block'}}>
+                    {RESOLUTIONS.map(r => (
+                      <div key={r.name} className={`search-item ${resolution === r.name ? 'active' : ''}`} onMouseDown={() => setResolution(r.name)}>
+                        <div style={{fontWeight:600}}>{r.name}</div>
+                        <div className="style-desc">{r.w}x{r.h}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {resolution === 'Custom' && (
+                  <div className="res-inputs">
+                    <input type="number" min="1" max="4096" value={customW} onChange={e => setCustomW(e.target.value)} placeholder="Width" className="input" style={{width:80}} />
+                    <span style={{color:'var(--text2)',margin:'0 4px'}}>×</span>
+                    <input type="number" min="1" max="4096" value={customH} onChange={e => setCustomH(e.target.value)} placeholder="Height" className="input" style={{width:80}} />
+                  </div>
+                )}
+              </div>
 
               <div className="page-selector">
                 <label>Pages:</label>
