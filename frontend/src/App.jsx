@@ -196,22 +196,47 @@ export default function App() {
     if (currentStory?.id === id) setCurrentStory(null)
   }
 
-  if (!pollenKey && !showKeyInput) {
+  if (!pollenKey) {
     return (
       <div className="splash">
         <div className="splash-card">
-          <div className="logo">📖</div>
-          <h1>StoryStudio</h1>
-          <p className="tagline">AI-powered storybooks in seconds.<br/>Connect your Pollinations account to start.</p>
-          <button className="btn-primary" onClick={connect}>
-            Connect with Pollinations
-          </button>
-          <button className="btn-link" onClick={() => window.open('https://enter.pollinations.ai/keys', '_blank')}>
-            I don't have a key yet
-          </button>
-          <p className="fine-print">or <button className="btn-link-inline" onClick={() => setShowKeyInput(true)}>paste a key manually</button></p>
-          {error && <div className="error">{error}</div>}
-          <p className="fine-print">Uses Pollinations.ai API</p>
+          {showKeyInput ? (
+            <>
+              <div className="logo">📖</div>
+              <h1>Enter API Key</h1>
+              <p className="tagline">Paste your Pollinations secret key.</p>
+              <div className="key-input-row">
+                <input
+                  type="text"
+                  value={pollenKey}
+                  onChange={(e) => setPollenKey(e.target.value)}
+                  placeholder="sk_..."
+                  className="input"
+                />
+              </div>
+              <button className="btn-primary" onClick={saveKey}>
+                Start Creating
+              </button>
+              <button className="btn-link" onClick={() => setShowKeyInput(false)}>
+                ← Back
+              </button>
+              {error && <div className="error">{error}</div>}
+            </>
+          ) : (
+            <>
+              <div className="logo">📖</div>
+              <h1>StoryStudio</h1>
+              <p className="tagline">AI-powered storybooks in seconds.<br/>Connect your Pollinations account to start.</p>
+              <button className="btn-primary" onClick={connect}>
+                Connect with Pollinations
+              </button>
+              <button className="btn-link" onClick={() => setShowKeyInput(true)}>
+                Paste a key manually
+              </button>
+              {error && <div className="error">{error}</div>}
+              <p className="fine-print">Uses Pollinations.ai API</p>
+            </>
+          )}
         </div>
       </div>
     )
