@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import DEFAULT_MODELS from './models.json'
 
 const POLLINATIONS = 'https://gen.pollinations.ai'
 const APP_KEY = 'pk_fJFepOdA7LMOZ1LA'
@@ -24,8 +25,8 @@ export default function App() {
   const [generateAudio, setGenerateAudio] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [models, setModels] = useState({ text: [], image: [], audio: [] })
-  const [modelsLoading, setModelsLoading] = useState(true)
+  const [models, setModels] = useState(DEFAULT_MODELS)
+  const [modelsLoading, setModelsLoading] = useState(false)
   const [textSearch, setTextSearch] = useState('')
   const [imageSearch, setImageSearch] = useState('')
   const [showTextDropdown, setShowTextDropdown] = useState(false)
@@ -45,7 +46,7 @@ export default function App() {
     }
   }, [])
 
-  // Fetch models on mount with 5s timeout
+  // Fetch latest models from API in background (start with hardcoded list)
   useEffect(() => {
     const ctrl = new AbortController()
     const t = setTimeout(() => ctrl.abort(), 5000)
@@ -58,22 +59,10 @@ export default function App() {
           const out = m.output_modalities?.[0] || 'text'
           if (grouped[out]) grouped[out].push({ id: m.id, name: m.name || m.id })
         }
-        setModels(grouped)
+        if (grouped.text.length > 0) setModels(grouped)
       })
-      .catch(() => setModels({
-        text: [
-          { id: 'openai', name: 'openai' }, { id: 'openai-fast', name: 'openai-fast' },
-          { id: 'gpt-5.4-mini', name: 'gpt-5.4-mini' }, { id: 'claude-fast', name: 'claude-fast' },
-          { id: 'gemini-fast', name: 'gemini-fast' }, { id: 'deepseek', name: 'deepseek' }
-        ],
-        image: [
-          { id: 'flux', name: 'flux' }, { id: 'gptimage', name: 'gptimage' },
-          { id: 'sana', name: 'sana' }, { id: 'seedream', name: 'seedream' },
-          { id: 'ideogram-v4-turbo', name: 'ideogram-v4-turbo' }
-        ],
-        audio: []
-      }))
-      .finally(() => { clearTimeout(t); setModelsLoading(false) })
+      .catch(() => {}) // already have DEFAULT_MODELS
+      .finally(() => { clearTimeout(t) })
     return () => { clearTimeout(t); ctrl.abort() }
   }, [])
 
