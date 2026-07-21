@@ -41,9 +41,11 @@ export default function App() {
     }
   }, [])
 
-  // Fetch models on mount
+  // Fetch models on mount with 5s timeout
   useEffect(() => {
-    fetch(`${POLLINATIONS}/models`)
+    const ctrl = new AbortController()
+    const t = setTimeout(() => ctrl.abort(), 5000)
+    fetch(`${POLLINATIONS}/models`, { signal: ctrl.signal })
       .then(r => r.json())
       .then(data => {
         const all = data.data || data
@@ -55,7 +57,8 @@ export default function App() {
         setModels(grouped)
       })
       .catch(() => setModels({ text: [{ id: 'openai', name: 'openai' }], image: [{ id: 'flux', name: 'flux' }], audio: [] }))
-      .finally(() => setModelsLoading(false))
+      .finally(() => { clearTimeout(t); setModelsLoading(false) })
+    return () => { clearTimeout(t); ctrl.abort() }
   }, [])
 
   const connect = () => {
@@ -79,8 +82,11 @@ export default function App() {
     setError(null)
     const key = pollenKey.trim()
     try {
-      // Step 1: Generate story text
+      // Step 1: Generate story text (90s timeout)
+      const genCtrl = new AbortController()
+      const genTimeout = setTimeout(() => genCtrl.abort(), 90000)
       const storyRes = await fetch(`${POLLINATIONS}/v1/chat/completions`, {
+        signal: genCtrl.signal,
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -95,6 +101,7 @@ export default function App() {
           }]
         })
       })
+      clearTimeout(genTimeout)
       if (!storyRes.ok) throw new Error(`Story generation failed (${storyRes.status})`)
       const storyData = await storyRes.json()
       let pageTexts = []
@@ -128,7 +135,8 @@ export default function App() {
       saveStories(updated)
       setCurrentStory(story)
     } catch (err) {
-      setError(err.message)
+      clearTimeout(genTimeout)
+      setError(err.name === 'AbortError' ? 'Request timed out — try again' : err.message)
     } finally {
       setLoading(false)
     }
