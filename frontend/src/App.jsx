@@ -120,6 +120,8 @@ export default function App() {
   const [retryKey, setRetryKey] = useState(0)
   const [imageStatuses, setImageStatuses] = useState({})
   const [resolution, setResolution] = useState('Square SD')
+  const [showResolutionDropdown, setShowResolutionDropdown] = useState(false)
+  const [resolutionSearch, setResolutionSearch] = useState('')
   const [customW, setCustomW] = useState('')
   const [customH, setCustomH] = useState('')
 
@@ -422,16 +424,18 @@ export default function App() {
 
               <div className="model-group">
                 <label>Resolution</label>
-                <div className="search-wrap" style={{position:'relative'}}>
-                  <input type="text" value={resolution === 'Custom' ? `Custom (${customW||'?'}x${customH||'?'})` : resolution} onChange={e => { const m = RESOLUTIONS.find(r => r.name.toLowerCase().includes(e.target.value.toLowerCase())); if(m) setResolution(m.name) }} placeholder={resolution} className="input" />
-                  <div className="search-dropdown" style={{display:'block'}}>
-                    {RESOLUTIONS.map(r => (
-                      <div key={r.name} className={`search-item ${resolution === r.name ? 'active' : ''}`} onMouseDown={() => setResolution(r.name)}>
-                        <div style={{fontWeight:600}}>{r.name}</div>
-                        <div className="style-desc">{r.w}x{r.h}</div>
-                      </div>
-                    ))}
-                  </div>
+                <div className="search-wrap">
+                  <input type="text" value={resolutionSearch} onChange={e => { setResolutionSearch(e.target.value); setShowResolutionDropdown(true) }} onFocus={() => setShowResolutionDropdown(true)} onBlur={() => setTimeout(() => setShowResolutionDropdown(false), 200)} placeholder={resolution === 'Custom' ? `Custom (${customW||'?'}x${customH||'?'})` : resolution} className="input" />
+                  {showResolutionDropdown && (
+                    <div className="search-dropdown">
+                      {RESOLUTIONS.filter(r => r.name.toLowerCase().includes(resolutionSearch.toLowerCase())).map(r => (
+                        <div key={r.name} className={`search-item ${resolution === r.name ? 'active' : ''}`} onMouseDown={() => { setResolution(r.name); setResolutionSearch(''); setShowResolutionDropdown(false) }}>
+                          <div style={{fontWeight:600}}>{r.name}</div>
+                          <div className="style-desc">{r.w}x{r.h}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 {resolution === 'Custom' && (
                   <div className="res-inputs">
