@@ -7,6 +7,25 @@ const STORAGE_KEY = 'storystudio_stories'
 const POLLEN_KEY = 'storystudio_pollen_key'
 const REDIRECT_URI = window.location.origin + window.location.pathname
 
+const STYLES = [
+  { name: 'None', desc: '' },
+  { name: 'Whimsical Watercolor', desc: 'Soft, dreamy watercolor painting with gentle color washes, visible brush textures, and ethereal light diffusion. The edges are soft and organic, colors bleed into each other naturally, creating a warm, storybook atmosphere with a hand-painted feel.' },
+  { name: 'Dark Fantasy', desc: 'Gothic, high-contrast fantasy illustration with deep shadows, moody lighting, and rich jewel tones. Dramatic chiaroscuro, intricate textures, and a foreboding atmosphere reminiscent of classic fantasy book covers and dark fairy tales.' },
+  { name: 'Studio Ghibli', desc: 'Lush, hand-animated Japanese illustration style with vibrant green landscapes, fluffy clouds, warm golden hour lighting, and meticulously detailed backgrounds. Characters have large expressive eyes and the scene radiates nostalgic wonder.' },
+  { name: 'Cyberpunk Neon', desc: 'Vibrant neon-drenched cityscape with electric cyan, hot pink, and deep purple highlights against rain-slicked dark surfaces. Holographic advertisements, reflective puddles, and a gritty futuristic atmosphere with glowing edge lighting.' },
+  { name: 'Renaissance Oil', desc: 'Classical oil painting technique with rich, layered brushwork, warm amber and ochre tones, and dramatic tenebrism. Figures are rendered with anatomical precision, draped in flowing fabrics, illuminated by a single golden light source.' },
+  { name: 'Retro Comic', desc: 'Bold, graphic pop-art style with thick black outlines, halftone dot patterns, vibrant primary colors, and dynamic action lines. Speech bubbles, onomatopoeia, and a four-color printing process aesthetic from 1960s comic books.' },
+  { name: 'Ethereal Dreamscape', desc: 'Surreal, otherworldly scene with floating islands, impossible geometry, bioluminescent flora, and a pastel cosmic sky. Soft glowing particles drift through the air, and the scene has a quiet, meditative, and slightly melancholic beauty.' },
+  { name: 'Steampunk Engraving', desc: 'Victorian-era copperplate engraving style with intricate mechanical details, brass and copper tones, gears, steam vents, and sepia-washed parchment textures. Cross-hatching creates depth, and the scene feels like an inventor\'s sketchbook come to life.' },
+  { name: 'Pixel Art', desc: 'Retro 16-bit video game pixel art with crisp square pixels, a limited vibrant color palette, and charming chibi-proportioned characters. The scene is built tile-by-tile with dithering, parallax backgrounds, and a cozy nostalgic glow.' },
+  { name: 'Crystalpunk', desc: 'Geometric crystalline structures with faceted gemstone surfaces, prismatic light refraction, and translucent mineral formations. Colors are cool and jewel-toned with sharp angular edges, floating shards, and a sleek, futuristic-mineral aesthetic.' },
+  { name: 'Midnight Woodcut', desc: 'Dark, high-contrast woodblock print style with bold black areas, white carved lines, and textured paper grain. Inspired by medieval woodcuts and Japanese ukiyo-e, with swirling patterns, stark silhouettes, and a haunting, folkloric atmosphere.' },
+  { name: 'Pastel Kawaii', desc: 'Ultra-cute Japanese-inspired illustration with soft pastel colors, rounded shapes, chunky proportions, and glossy finishes. Everything has a squishy, marshmallow-like quality with sparkly highlights, tiny blush marks, and an overwhelmingly adorable aesthetic.' },
+  { name: 'Vaporwave Sunset', desc: 'Retro-futuristic 1980s synthwave aesthetic with a neon grid-lined horizon, setting sun in gradient bands of pink, purple, and orange, and chrome-accented geometric shapes. Glitch art effects, CRT scanlines, and a nostalgic, liminal atmosphere.' },
+  { name: 'Ink Wash', desc: 'Traditional East Asian ink wash painting with flowing black sumi-e brushstrokes, subtle gray gradients, and abundant negative space. Misty mountains, bamboo, and cherry blossoms rendered with minimal, graceful strokes on textured rice paper.' },
+  { name: 'Art Nouveau', desc: 'Elegant turn-of-the-century decorative style with flowing organic curves, intricate floral motifs, and gilded borders. Figures are elongated and graceful, framed by sinuous vines and peacock feathers, with muted earthy tones accented by gold leaf.' },
+]
+
 function loadStories() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') }
   catch { return [] }
@@ -22,6 +41,9 @@ export default function App() {
   const [pages, setPages] = useState(3)
   const [textModel, setTextModel] = useState('openai')
   const [imageModel, setImageModel] = useState('flux')
+  const [artStyle, setArtStyle] = useState('None')
+  const [styleSearch, setStyleSearch] = useState('')
+  const [showStyleDropdown, setShowStyleDropdown] = useState(false)
   const [generateAudio, setGenerateAudio] = useState(false)
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -131,8 +153,11 @@ export default function App() {
       // Step 2: Build pages with images
       setProgress(60)
       setProgressText('Preparing images...')
+      const style = STYLES.find(s => s.name === artStyle)
+      const stylePrefix = style?.desc ? style.desc + '. ' : ''
       const storyPages = pageTexts.map((text, i) => {
-        const imageUrl = `${POLLINATIONS}/image/${encodeURIComponent(text.slice(0, 200))}?model=${imageModel}${key ? `&key=${encodeURIComponent(key)}` : ''}`
+        const imagePrompt = stylePrefix + text
+        const imageUrl = `${POLLINATIONS}/image/${encodeURIComponent(imagePrompt.slice(0, 300))}?model=${imageModel}${key ? `&key=${encodeURIComponent(key)}` : ''}`
         const page = { pageNum: i + 1, text, imageUrl }
         if (generateAudio) {
           page.audioUrl = `${POLLINATIONS}/audio/${encodeURIComponent(text.slice(0, 100))}?voice=nova${key ? `&key=${encodeURIComponent(key)}` : ''}`
@@ -317,6 +342,38 @@ export default function App() {
                       </div>
                     )}
                   </div>
+                </div>
+              </div>
+
+              <div className="model-group">
+                <label>Art Style</label>
+                <div className="search-wrap">
+                  <input
+                    type="text"
+                    value={styleSearch}
+                    onChange={e => { setStyleSearch(e.target.value); setShowStyleDropdown(true) }}
+                    onFocus={() => setShowStyleDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowStyleDropdown(false), 200)}
+                    placeholder={artStyle}
+                    className="input search-input"
+                  />
+                  {showStyleDropdown && (
+                    <div className="search-dropdown">
+                      {STYLES.filter(s =>
+                        s.name.toLowerCase().includes(styleSearch.toLowerCase()) ||
+                        s.desc.toLowerCase().includes(styleSearch.toLowerCase())
+                      ).map(s => (
+                        <div
+                          key={s.name}
+                          className={`search-item ${artStyle === s.name ? 'active' : ''}`}
+                          onMouseDown={() => { setArtStyle(s.name); setStyleSearch(''); setShowStyleDropdown(false) }}
+                        >
+                          <div style={{fontWeight:600}}>{s.name}</div>
+                          {s.desc && <div style={{fontSize:'0.75rem',color:'var(--text2)',marginTop:2,lineHeight:1.3}}>{s.desc}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
