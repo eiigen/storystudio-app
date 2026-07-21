@@ -24,6 +24,9 @@ export default function App() {
   const [imageModel, setImageModel] = useState('flux')
   const [generateAudio, setGenerateAudio] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [progressText, setProgressText] = useState('')
+  const [imageStates, setImageStates] = useState({})
   const [error, setError] = useState(null)
   const [models, setModels] = useState(DEFAULT_MODELS)
   const [modelsLoading, setModelsLoading] = useState(false)
@@ -85,11 +88,16 @@ export default function App() {
     if (!theme.trim()) return
     setLoading(true)
     setError(null)
+    setProgress(0)
+    setProgressText('Starting...')
     const key = pollenKey.trim()
+    let genTimeout
+    let genCtrl = new AbortController()
     try {
       // Step 1: Generate story text (90s timeout)
-      const genCtrl = new AbortController()
-      const genTimeout = setTimeout(() => genCtrl.abort(), 90000)
+      setProgress(10)
+      setProgressText('Generating story text...')
+      genTimeout = setTimeout(() => genCtrl.abort(), 90000)
       const storyRes = await fetch(`${POLLINATIONS}/v1/chat/completions`, {
         signal: genCtrl.signal,
         method: 'POST',
@@ -109,6 +117,8 @@ export default function App() {
       clearTimeout(genTimeout)
       if (!storyRes.ok) throw new Error(`Story generation failed (${storyRes.status})`)
       const storyData = await storyRes.json()
+      setProgress(50)
+      setProgressText('Parsing story...')
       let pageTexts = []
       try {
         const content = storyData.choices[0].message.content
@@ -119,6 +129,8 @@ export default function App() {
       }
 
       // Step 2: Build pages with images
+      setProgress(60)
+      setProgressText('Preparing images...')
       const storyPages = pageTexts.map((text, i) => {
         const imageUrl = `${POLLINATIONS}/image/${encodeURIComponent(text.slice(0, 200))}?model=${imageModel}${key ? `&key=${encodeURIComponent(key)}` : ''}`
         const page = { pageNum: i + 1, text, imageUrl }
@@ -135,6 +147,9 @@ export default function App() {
         created_at: new Date().toISOString()
       }
 
+      setProgress(100)
+      setProgressText('Done!')
+
       const updated = [story, ...stories]
       setStories(updated)
       saveStories(updated)
@@ -144,6 +159,8 @@ export default function App() {
       setError(err.name === 'AbortError' ? 'Request timed out — try again' : err.message)
     } finally {
       setLoading(false)
+      setProgress(0)
+      setProgressText('')
     }
   }
 
@@ -195,8 +212,16 @@ export default function App() {
             <div className="pages">
               {currentStory.pages.map((page) => (
                 <div key={page.pageNum} className="page">
-                  <div className="page-image" style={{ backgroundImage: `url(${page.imageUrl})` }}>
-                    {!page.imageUrl && <div className="image-placeholder">Generating...</div>}
+                  <div className="page-image">
+                    {page.imageUrl && (
+                      <img
+                        src={page.imageUrl}
+                        alt={`Page ${page.pageNum}`}
+                        className="page-img"
+                        onLoad={(e) => { e.target.classList.add('loaded') }}
+                        onError={(e) => { e.target.classList.add('error'); e.target.alt = 'Failed to load image' }}
+                      />
+                    )}
                   </div>
                   <div className="page-text">
                     <span className="page-num">Page {page.pageNum}</span>
@@ -317,8 +342,14 @@ export default function App() {
               </label>
 
               <button type="submit" className="btn-primary" disabled={loading || !theme.trim()}>
-                {loading ? 'Generating...' : '✨ Generate Story'}
+                {loading ? progressText || 'Generating...' : '✨ Generate Story'}
               </button>
+              {loading && progress > 0 && (
+                <div className="progress-bar">
+                  <div className="progress-fill" style={{ width: `${progress}%` }}></div>
+                  <span className="progress-label">{progressText} ({progress}%)</span>
+                </div>
+              )}
             </form>
 
             {stories.length > 0 && (
