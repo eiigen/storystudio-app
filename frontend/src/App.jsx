@@ -295,7 +295,7 @@ useEffect(() => {
       const w = resolution === 'Custom' ? parseInt(customW) || 512 : (res?.w || 512)
       const h = resolution === 'Custom' ? parseInt(customH) || 512 : (res?.h || 512)
       const storyPages = pageTexts.map((text, i) => {
-        const imagePrompt = "Children's book illustration. " + stylePrefix + text + '. Detailed, vibrant, high quality artwork, sharp focus, consistent style'
+        const imagePrompt = stylePrefix + text + ". Detailed, vibrant, high quality artwork, sharp focus, consistent style"
         const imageUrl = `${POLLINATIONS}/image/${encodeURIComponent(imagePrompt.slice(0, 300))}?model=${imageModel}&width=${w}&height=${h}${key ? `&key=${encodeURIComponent(key)}` : ''}`
         const page = { pageNum: i + 1, text, imageUrl }
         if (generateAudio) {
