@@ -185,7 +185,7 @@ useEffect(() => {
     const key = pollenKey.trim()
     if (!key.startsWith('sk_')) { setError('Invalid API key — must start with sk_'); return }
     try {
-      const res = await fetch('https://text.pollinations.ai/', {
+      const res = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: 'openai', messages: [{ role: 'user', content: 'hi' }], apiKey: key })
@@ -239,7 +239,7 @@ useEffect(() => {
   const optimizePromptText = async () => {
     setError(null)
     try {
-      const res = await fetch('https://text.pollinations.ai/', {
+      const res = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -343,7 +343,7 @@ useEffect(() => {
               <div className="logo">📖</div><h1>Enter API Key</h1>
               <p className="tagline">Paste your Pollinations secret key.</p>
               <div className="key-input-row">
- <input type="text" value={pollenKey} onChange={(e) => setPollenKey(e.target.value)} placeholder="sk_..." className="input" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); validateAndSaveKey() } }} />
+              <input type="password" value={pollenKey} onChange={(e) => setPollenKey(e.target.value)} placeholder="sk_..." className="input" autoComplete="off" name="apikey" />
  </div>
  <Button onClick={validateAndSaveKey}>Start Creating</Button>
               <Button variant="ghost" onClick={() => setShowKeyInput(false)}>← Back</Button>
