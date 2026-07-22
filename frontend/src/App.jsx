@@ -295,8 +295,8 @@ useEffect(() => {
       const w = resolution === 'Custom' ? parseInt(customW) || 512 : (res?.w || 512)
       const h = resolution === 'Custom' ? parseInt(customH) || 512 : (res?.h || 512)
       const storyPages = pageTexts.map((text, i) => {
-        const imagePrompt = stylePrefix + text + ', detailed scene, consistent visual style, high quality, sharp focus'
-        const imageUrl = `${POLLINATIONS}/image/${encodeURIComponent(imagePrompt.slice(0, 300))}?model=${imageModel}&width=${w}&height=${h}${key ? `&key=${encodeURIComponent(key)}` : ''}&negative=blurry,%20bad%20anatomy,%20extra%20limbs,%20low%20quality,%20deformed`
+        const imagePrompt = "Children's book illustration. " + stylePrefix + text + '. Detailed, vibrant, high quality artwork, sharp focus, consistent style'
+        const imageUrl = `${POLLINATIONS}/image/${encodeURIComponent(imagePrompt.slice(0, 300))}?model=${imageModel}&width=${w}&height=${h}${key ? `&key=${encodeURIComponent(key)}` : ''}`
         const page = { pageNum: i + 1, text, imageUrl }
         if (generateAudio) {
           page.audioUrl = `${POLLINATIONS}/audio/${encodeURIComponent(text.slice(0, 100))}?model=${audioModel}&voice=nova${key ? `&key=${encodeURIComponent(key)}` : ''}`
@@ -344,6 +344,7 @@ useEffect(() => {
           ) : (
             <>
               <div className="logo">📖</div><h1>StoryStudio</h1>
+              <span className="beta-badge">Still in Beta</span>
               <p className="tagline">AI-powered storybooks in seconds.<br/>Connect your Pollinations account to start.</p>
               <Button onClick={connect}>Connect with Pollinations</Button>
               <Button variant="ghost" onClick={() => setShowKeyInput(true)}>Paste a key manually</Button>
@@ -360,6 +361,7 @@ useEffect(() => {
     <div className="app">
       <header className="topbar">
         <div className="brand">📖 StoryStudio</div>
+        <span className="beta-badge">Beta</span>
         <nav>
           <label className="btn-ghost file-input">Import<input type="file" accept=".json" onChange={importStories} hidden /></label>
           <Button variant="ghost" onClick={exportStories}>Export</Button>

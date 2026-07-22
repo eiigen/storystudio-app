@@ -1,6 +1,8 @@
 # AI StoryStudio 📖
 
-**AI-powered storybook generator** — enter a theme, get a fully illustrated children's story with text, images, and optional audio narration.
+> **🧪 Still in Beta** — AI-powered storybook generator. Expect rough edges and frequent improvements.
+
+**Enter a theme, get a fully illustrated children's story with text, images, and optional audio narration.**
 
 Built on [Pollinations.ai](https://pollinations.ai) — multi-modal AI generation (text + image + audio) in one API.
 
@@ -31,8 +33,9 @@ Built on [Pollinations.ai](https://pollinations.ai) — multi-modal AI generatio
 - **Hosting:** GitHub Pages
 - **Storage:** Browser localStorage
 
-## 📋 Roadmap / TODO
+## 📋 TODO
 
+- [ ] Prompt adherence improvements
 - [ ] Undo/redo for story edits
 - [ ] Drag-and-drop page reordering
 - [ ] Keyboard shortcuts
@@ -43,7 +46,13 @@ Built on [Pollinations.ai](https://pollinations.ai) — multi-modal AI generatio
 - [ ] Multi-language story generation
 - [ ] Custom illustration style presets
 - [ ] Story templates & themes library
+- [ ] Audio model selection UI
+
+## 🤝 Contributing
+
+Contributions are welcome! Open an issue or submit a PR.
 
 ## 🔗 Related
 
 - **Pollinations API:** [gen.pollinations.ai](https://gen.pollinations.ai)
+- **Pollinations Docs:** [pollinations.ai](https://pollinations.ai)
