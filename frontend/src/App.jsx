@@ -3,7 +3,7 @@ import DEFAULT_MODELS from './models.json'
 import { Button, Card, Tag } from './components'
 
 const POLLINATIONS = 'https://gen.pollinations.ai'
-const APP_KEY = 'pk_fJFepOdA7LMOZ1LA'
+const APP_KEY = import.meta.env.VITE_POLLINATIONS_APP_KEY || ''
 const STORAGE_KEY = 'storystudio_stories'
 const POLLEN_KEY = 'storystudio_pollen_key'
 const CUSTOM_STYLES_KEY = 'storystudio_custom_styles'
@@ -101,6 +101,9 @@ export default function App() {
   const [showStyleDropdown, setShowStyleDropdown] = useState(false)
   const [styleSearch, setStyleSearch] = useState('')
   const [generateAudio, setGenerateAudio] = useState(false)
+  const [audioModel, setAudioModel] = useState('openai-audio')
+  const [audioSearch, setAudioSearch] = useState('')
+  const [showAudioDropdown, setShowAudioDropdown] = useState(false)
   const [loading, setLoading] = useState(false)
   const [optimizedPrompt, setOptimizedPrompt] = useState('')
   const [showOptimized, setShowOptimized] = useState(false)
@@ -292,11 +295,11 @@ useEffect(() => {
       const w = resolution === 'Custom' ? parseInt(customW) || 512 : (res?.w || 512)
       const h = resolution === 'Custom' ? parseInt(customH) || 512 : (res?.h || 512)
       const storyPages = pageTexts.map((text, i) => {
-        const imagePrompt = stylePrefix + text + '. ' + (allStyles.find(s => s.name === artStyle)?.desc || 'Children\'s book illustration') + ', detailed scene, consistent visual style, high quality, sharp focus'
-        const imageUrl = `${POLLINATIONS}/image/${encodeURIComponent(imagePrompt.slice(0, 300))}?model=${imageModel}&width=${w}&height=${h}${key ? `&key=${encodeURIComponent(key)}` : ''}`
+        const imagePrompt = stylePrefix + text + ', detailed scene, consistent visual style, high quality, sharp focus'
+        const imageUrl = `${POLLINATIONS}/image/${encodeURIComponent(imagePrompt.slice(0, 300))}?model=${imageModel}&width=${w}&height=${h}${key ? `&key=${encodeURIComponent(key)}` : ''}&negative=blurry,%20bad%20anatomy,%20extra%20limbs,%20low%20quality,%20deformed`
         const page = { pageNum: i + 1, text, imageUrl }
         if (generateAudio) {
-          page.audioUrl = `${POLLINATIONS}/audio/${encodeURIComponent(text.slice(0, 100))}?voice=nova${key ? `&key=${encodeURIComponent(key)}` : ''}`
+          page.audioUrl = `${POLLINATIONS}/audio/${encodeURIComponent(text.slice(0, 100))}?model=${audioModel}&voice=nova${key ? `&key=${encodeURIComponent(key)}` : ''}`
         }
         return page
       })
@@ -371,7 +374,7 @@ useEffect(() => {
             <Button variant="ghost" onClick={() => setCurrentStory(null)}>← Back</Button>
             <div className="story-viewer-header">
               <h2>{currentStory.title}</h2>
-              {imageStatuses.size > 0 && (
+              {Object.keys(imageStatuses).length > 0 && (
                 <span className="image-status">{Object.values(imageStatuses).filter(v=>v==='error').length} image(s) failed</span>
               )}
             </div>
@@ -395,7 +398,7 @@ useEffect(() => {
               <input type="text" value={theme} onChange={(e) => setTheme(e.target.value)} placeholder="e.g., A dragon who loves baking cookies" className="input" />
 
               <div className="optimize-row" style={{display:'flex',gap:'8px',alignItems:'center',marginBottom:'8px'}}>
-                <Button disabled={loading || !theme.trim()} onClick={optimizePromptText}>✨ Optimize prompt</Button>
+                <Button type="button" disabled={loading || !theme.trim()} onClick={optimizePromptText}>✨ Optimize prompt</Button>
                 {showOptimized && <>
                   <Button variant="ghost" onClick={() => { setTheme(optimizedPrompt); setShowOptimized(false) }}>Accept</Button>
                   <Button variant="ghost" onClick={() => setShowOptimized(false)}>Cancel</Button>
@@ -516,6 +519,27 @@ useEffect(() => {
                 <input type="checkbox" checked={generateAudio} onChange={e => setGenerateAudio(e.target.checked)} />
                 🔊 Generate audio narration (costs more pollen)
               </label>
+              {generateAudio && (
+                <div className="model-group">
+                  <label>Audio Model <span className={"health-dot " + modelHealth.audio} /></label>
+                  <div className="search-wrap">
+                    <input type="text" value={audioSearch} onChange={e => { setAudioSearch(e.target.value); setShowAudioDropdown(true) }} onFocus={() => setShowAudioDropdown(true)} onBlur={() => setTimeout(() => setShowAudioDropdown(false), 200)} placeholder={audioModel} className="input" />
+                    {showAudioDropdown && (
+                      <div className="search-dropdown">
+                        {(models.audio?.length > 0 ? models.audio : [
+                          { id: 'openai-audio', name: 'openai-audio' },
+                          { id: 'openai-audio-large', name: 'openai-audio-large' },
+                          { id: 'elevenlabs', name: 'elevenlabs' },
+                          { id: 'elevenflash', name: 'elevenflash' },
+                          { id: 'qwen-tts', name: 'qwen-tts' },
+                        ]).filter(m => m.id.toLowerCase().includes(audioSearch.toLowerCase())).map(m => (
+                          <div key={m.id} className={`search-item ${audioModel === m.id ? 'active' : ''}`} onMouseDown={() => { setAudioModel(m.id); setAudioSearch(''); setShowAudioDropdown(false) }}>{m.name || m.id}</div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <Button disabled={loading || !theme.trim()}>
                 {loading ? progressText || 'Generating...' : '✨ Generate Story'}
@@ -533,10 +557,10 @@ useEffect(() => {
                 <h3>Your Stories</h3>
                 <div className="story-grid">
                   {stories.map(s => (
-                    <Card key={s.id} interactive onClick={() => { setCurrentStory(s); setRetryKey(k => k + 1) }}>
+                    <Card key={s.id} className="story-card" interactive onClick={() => { setCurrentStory(s); setRetryKey(k => k + 1) }}>
+                      <Button variant="danger" size="sm" className="btn-delete" onClick={(e) => { e.stopPropagation(); deleteStory(s.id) }}>×</Button>
                       <div className="story-card-title">{s.title}</div>
-                      <div className="story-card-meta">{s.pages.length} pages</div>
-                      <Button variant="danger" size="sm" onClick={(e) => { e.stopPropagation(); deleteStory(s.id) }}>×</Button>
+                      <div className="story-card-meta">{s.pages.length} pages · {new Date(s.created_at).toLocaleDateString()}</div>
                     </Card>
                   ))}
                 </div>
