@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import DEFAULT_MODELS from './models.json'
+import { Button, Card, Tag } from './components'
 
 const POLLINATIONS = 'https://gen.pollinations.ai'
 const APP_KEY = 'pk_fJFepOdA7LMOZ1LA'
@@ -78,7 +79,7 @@ function StoryImage({ url, text, retryKey, onStatus }) {
       {status === 'error' && (
         <div className="image-overlay image-error">
           <span>Failed to load</span>
-          {attempt < 2 && <button className="btn-retry" onClick={retry}>Retry</button>}
+          {attempt < 2 && <Button variant="ghost" onClick={retry}>Retry</Button>}
         </div>
       )}
     </div>
@@ -124,11 +125,26 @@ export default function App() {
   const [resolutionSearch, setResolutionSearch] = useState('')
   const [customW, setCustomW] = useState('')
   const [customH, setCustomH] = useState('')
+  const [modelHealth, setModelHealth] = useState({ text: "online", image: "online", audio: "online", video: "online" })
 
-  useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(stories)) }, [stories])
-  useEffect(() => { localStorage.setItem(CUSTOM_STYLES_KEY, JSON.stringify(customStyles)) }, [customStyles])
+useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(stories)) }, [stories])
+useEffect(() => { localStorage.setItem(CUSTOM_STYLES_KEY, JSON.stringify(customStyles)) }, [customStyles])
 
-  useEffect(() => {
+useEffect(() => {
+  const check = async () => {
+    for (const cat of ['text','image','audio','video']) {
+      try {
+        const r = await fetch('https://gen.pollinations.ai/health')
+        setModelHealth(h => ({ ...h, [cat]: r.ok ? 'online' : 'degraded' }))
+      } catch { setModelHealth(h => ({ ...h, [cat]: 'offline' })) }
+    }
+  }
+  check()
+  const iv = setInterval(check, 60000)
+  return () => clearInterval(iv)
+}, [])
+
+useEffect(() => {
     const hash = window.location.hash.slice(1)
     const params = new URLSearchParams(hash)
     const apiKey = params.get('api_key')
@@ -291,16 +307,16 @@ export default function App() {
               <div className="key-input-row">
                 <input type="text" value={pollenKey} onChange={(e) => setPollenKey(e.target.value)} placeholder="sk_..." className="input" />
               </div>
-              <button className="btn-primary" onClick={saveKey}>Start Creating</button>
-              <button className="btn-link" onClick={() => setShowKeyInput(false)}>← Back</button>
+              <Button onClick={saveKey}>Start Creating</Button>
+              <Button variant="ghost" onClick={() => setShowKeyInput(false)}>← Back</Button>
               {error && <div className="error">{error}</div>}
             </>
           ) : (
             <>
               <div className="logo">📖</div><h1>StoryStudio</h1>
               <p className="tagline">AI-powered storybooks in seconds.<br/>Connect your Pollinations account to start.</p>
-              <button className="btn-primary" onClick={connect}>Connect with Pollinations</button>
-              <button className="btn-link" onClick={() => setShowKeyInput(true)}>Paste a key manually</button>
+              <Button onClick={connect}>Connect with Pollinations</Button>
+              <Button variant="ghost" onClick={() => setShowKeyInput(true)}>Paste a key manually</Button>
               {error && <div className="error">{error}</div>}
               <p className="fine-print">Uses Pollinations.ai API</p>
             </>
@@ -316,15 +332,15 @@ export default function App() {
         <div className="brand">📖 StoryStudio</div>
         <nav>
           <label className="btn-ghost file-input">Import<input type="file" accept=".json" onChange={importStories} hidden /></label>
-          <button className="btn-ghost" onClick={exportStories}>Export</button>
-          <button className="btn-ghost" onClick={() => { localStorage.removeItem(POLLEN_KEY); setPollenKey(''); setCurrentStory(null) }}>Change Key</button>
+          <Button variant="ghost" onClick={exportStories}>Export</Button>
+          <Button variant="ghost" onClick={() => { localStorage.removeItem(POLLEN_KEY); setPollenKey(''); setCurrentStory(null) }}>Change Key</Button>
         </nav>
       </header>
       <main className="content">
         {error && <div className="error">{error}</div>}
         {currentStory && currentStory.pages ? (
           <div className="story-viewer">
-            <button className="btn-ghost back" onClick={() => setCurrentStory(null)}>← Back</button>
+            <Button variant="ghost" onClick={() => setCurrentStory(null)}>← Back</Button>
             <div className="story-viewer-header">
               <h2>{currentStory.title}</h2>
               {imageStatuses.size > 0 && (
@@ -352,7 +368,7 @@ export default function App() {
 
               <div className="model-row">
                 <div className="model-group">
-                  <label>Text Model</label>
+                  <label>Text Model <span className={"health-dot " + modelHealth.text} /></label>
                   <div className="search-wrap">
                     <input type="text" value={textSearch} onChange={e => { setTextSearch(e.target.value); setShowTextDropdown(true) }} onFocus={() => setShowTextDropdown(true)} onBlur={() => setTimeout(() => setShowTextDropdown(false), 200)} placeholder={textModel} className="input" />
                     {showTextDropdown && (
@@ -365,7 +381,7 @@ export default function App() {
                   </div>
                 </div>
                 <div className="model-group">
-                  <label>Image Model</label>
+                  <label>Image Model <span className={"health-dot " + modelHealth.image} /></label>
                   <div className="search-wrap">
                     <input type="text" value={imageSearch} onChange={e => { setImageSearch(e.target.value); setShowImageDropdown(true) }} onFocus={() => setShowImageDropdown(true)} onBlur={() => setTimeout(() => setShowImageDropdown(false), 200)} placeholder={imageModel} className="input" />
                     {showImageDropdown && (
@@ -402,8 +418,8 @@ export default function App() {
                   <input type="text" value={newStyleName} onChange={(e) => setNewStyleName(e.target.value)} placeholder="Style name (e.g., My Anime Style)" className="input" />
                   <textarea value={newStyleDesc} onChange={(e) => setNewStyleDesc(e.target.value)} placeholder="Describe the visual style in detail (e.g., Vibrant cel-shaded anime with dramatic lighting, sharp line art...)" rows={3} className="input" />
                   <div className="custom-style-form-buttons">
-                    <button type="button" className="btn-primary" onClick={saveCustomStyle}>Save Style</button>
-                    <button type="button" className="btn-link" onClick={() => setShowCustomStyleForm(false)}>Cancel</button>
+                    <Button variant="primary" onClick={saveCustomStyle}>Save Style</Button>
+                    <Button variant="ghost" onClick={() => setShowCustomStyleForm(false)}>Cancel</Button>
                   </div>
                 </div>
               )}
@@ -464,9 +480,9 @@ export default function App() {
                 🔊 Generate audio narration (costs more pollen)
               </label>
 
-              <button type="submit" className="btn-primary" disabled={loading || !theme.trim()}>
+              <Button disabled={loading || !theme.trim()}>
                 {loading ? progressText || 'Generating...' : '✨ Generate Story'}
-              </button>
+              </Button>
               {loading && progress > 0 && (
                 <div className="progress-bar">
                   <div className="progress-fill" style={{ width: `${progress}%` }}></div>
@@ -480,11 +496,11 @@ export default function App() {
                 <h3>Your Stories</h3>
                 <div className="story-grid">
                   {stories.map(s => (
-                    <div key={s.id} className="story-card" onClick={() => { setCurrentStory(s); setRetryKey(k => k + 1) }}>
+                    <Card key={s.id} interactive onClick={() => { setCurrentStory(s); setRetryKey(k => k + 1) }}>
                       <div className="story-card-title">{s.title}</div>
                       <div className="story-card-meta">{s.pages.length} pages</div>
-                      <button className="btn-delete" onClick={(e) => { e.stopPropagation(); deleteStory(s.id) }}>×</button>
-                    </div>
+                      <Button variant="danger" size="sm" onClick={(e) => { e.stopPropagation(); deleteStory(s.id) }}>×</Button>
+                    </Card>
                   ))}
                 </div>
               </div>

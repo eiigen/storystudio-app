@@ -1,0 +1,87 @@
+/*
+ * Jam Style Design Tokens — Story Studio
+ * Source: ~/storage/documents/OpenCode/OpenCode/Jam Style.md
+ */
+:root {
+  /* ── Surfaces ── */
+  --color-canvas: #130f18;
+  --color-card: #21192a;
+  --color-elevated: #2e2d36;
+  --color-product-surface: #ffffff;
+
+  /* ── Accent (Mint/Cyan gradient) ── */
+  --color-accent-mint: #73e5bf;
+  --color-accent-magenta: #e91e8c;
+  --color-accent-cyan: #00e5ff;
+  --color-accent-gradient: linear-gradient(135deg, var(--color-accent-magenta), var(--color-accent-cyan));
+
+  /* ── Text ── */
+  --color-text-on-canvas: #f0f0f0;
+  --color-text-muted: #8b8b9e;
+  --color-text-inverse: #130f18;
+
+  /* ── Interactive ── */
+  --color-border: #2e2640;
+  --color-border-focus: var(--color-accent-mint);
+  --color-danger: #ff4444;
+  --color-success: #00cc66;
+  --color-warning: #ffaa00;
+
+  /* ── Spacing (4px unit) ── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-13: 52px;
+  --space-14: 56px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+  --space-49: 196px;
+
+  /* ── Border Radius ── */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 18px;
+  --radius-2xl: 24px;
+  --radius-pill: 9999px;
+
+  /* ── Shadows ── */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.5);
+  --shadow-glow: 0 0 20px rgba(233,30,140,0.3);
+  --shadow-subtle: rgba(19, 15, 24, 0.1) 0px 0px 0px 2px,
+    rgba(115, 229, 191, 0.2) 0px 20px 25px -5px,
+    rgba(115, 229, 191, 0.2) 0px 8px 10px -6px;
+  --shadow-subtle-2: rgb(197, 255, 231) 0px 1px 1px 0px inset;
+
+  /* ── Typography ── */
+  --font-display: 2rem;
+  --font-h1: 1.5rem;
+  --font-h2: 1.25rem;
+  --font-h3: 1.125rem;
+  --font-h4: 1rem;
+  --font-body: 0.875rem;
+  --font-small: 0.75rem;
+  --font-caption: 0.625rem;
+
+  /* ── Easing ── */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ── Semantic aliases (map existing app vars) ── */
+  --bg: var(--color-canvas);
+  --surface: var(--color-card);
+  --surface2: var(--color-elevated);
+  --accent: var(--color-accent-mint);
+  --text1: var(--color-text-on-canvas);
+  --text2: var(--color-text-muted);
+  --radius: var(--radius-md);
+}
