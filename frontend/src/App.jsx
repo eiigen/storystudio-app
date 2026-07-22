@@ -180,23 +180,13 @@ useEffect(() => {
     window.location.href = `https://enter.pollinations.ai/authorize?${params}`
   }
 
-  const validateAndSaveKey = async () => {
-    setError(null)
+  const validateAndSaveKey = () => {
     const key = pollenKey.trim()
-    if (!key.startsWith('sk_')) { setError('Invalid API key — must start with sk_'); return }
-    try {
-      const res = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'openai', messages: [{ role: 'user', content: 'hi' }], apiKey: key })
-      })
-      if (!res.ok) throw new Error('invalid')
-      const data = await res.json()
-      if (!data?.choices) throw new Error('invalid')
-      localStorage.setItem(POLLEN_KEY, key)
-      setPollenKey(key)
-      setShowKeyInput(false)
-    } catch { setError('Invalid API key — check your key and try again') }
+    if (!key) { setError('Please enter your API key'); return }
+    localStorage.setItem(POLLEN_KEY, key)
+    setPollenKey(key)
+    setShowKeyInput(false)
+    setError(null)
   }
 
   const saveCustomStyle = () => {
@@ -241,14 +231,13 @@ useEffect(() => {
     try {
       const res = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${pollenKey}` },
         body: JSON.stringify({
           model: textModel,
           messages: [
             { role: 'system', content: 'You are a prompt optimization expert for AI image generation. Optimize the user\'s prompt to be more specific, detailed, and artistically descriptive. Return only the optimized prompt, no explanation.' },
             { role: 'user', content: `Optimize this image prompt: ${theme}` }
-          ],
-          apiKey: pollenKey || undefined
+          ]
         })
       })
       if (!res.ok) throw new Error('Optimization failed')
