@@ -334,7 +334,7 @@ useEffect(() => {
     if (currentStory?.id === id) setCurrentStory(null)
   }
 
-  if (!pollenKey) {
+  if (!localStorage.getItem(POLLEN_KEY)) {
     return (
       <div className="splash">
         <div className="splash-card">
@@ -343,7 +343,7 @@ useEffect(() => {
               <div className="logo">📖</div><h1>Enter API Key</h1>
               <p className="tagline">Paste your Pollinations secret key.</p>
               <div className="key-input-row">
-              <input type="password" value={pollenKey} onChange={(e) => setPollenKey(e.target.value)} placeholder="sk_..." className="input" autoComplete="off" name="apikey" />
+              <input type="text" value={pollenKey} onChange={(e) => setPollenKey(e.target.value)} placeholder="sk_..." className="input" autoComplete="off" name="story-apikey" />
  </div>
  <Button onClick={validateAndSaveKey}>Start Creating</Button>
               <Button variant="ghost" onClick={() => setShowKeyInput(false)}>← Back</Button>
