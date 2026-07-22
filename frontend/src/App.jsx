@@ -102,6 +102,8 @@ export default function App() {
   const [styleSearch, setStyleSearch] = useState('')
   const [generateAudio, setGenerateAudio] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [optimizedPrompt, setOptimizedPrompt] = useState('')
+  const [showOptimized, setShowOptimized] = useState(false)
   const [progress, setProgress] = useState(0)
   const [progressText, setProgressText] = useState('')
   const [error, setError] = useState(null)
@@ -178,9 +180,23 @@ useEffect(() => {
     window.location.href = `https://enter.pollinations.ai/authorize?${params}`
   }
 
-  const saveKey = () => {
-    localStorage.setItem(POLLEN_KEY, pollenKey.trim())
-    setShowKeyInput(false)
+  const validateAndSaveKey = async () => {
+    setError(null)
+    const key = pollenKey.trim()
+    if (!key.startsWith('sk_')) { setError('Invalid API key — must start with sk_'); return }
+    try {
+      const res = await fetch('https://text.pollinations.ai/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'openai', messages: [{ role: 'user', content: 'hi' }], apiKey: key })
+      })
+      if (!res.ok) throw new Error('invalid')
+      const data = await res.json()
+      if (!data?.choices) throw new Error('invalid')
+      localStorage.setItem(POLLEN_KEY, key)
+      setPollenKey(key)
+      setShowKeyInput(false)
+    } catch { setError('Invalid API key — check your key and try again') }
   }
 
   const saveCustomStyle = () => {
@@ -219,6 +235,28 @@ useEffect(() => {
   }
 
   const allStyles = [...BUILTIN_STYLES, ...customStyles]
+
+  const optimizePromptText = async () => {
+    setError(null)
+    try {
+      const res = await fetch('https://text.pollinations.ai/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: textModel,
+          messages: [
+            { role: 'system', content: 'You are a prompt optimization expert for AI image generation. Optimize the user\'s prompt to be more specific, detailed, and artistically descriptive. Return only the optimized prompt, no explanation.' },
+            { role: 'user', content: `Optimize this image prompt: ${theme}` }
+          ],
+          apiKey: pollenKey || undefined
+        })
+      })
+      if (!res.ok) throw new Error('Optimization failed')
+      const data = await res.json()
+      const opt = data?.choices?.[0]?.message?.content?.replace(/^["']|["']$/g, '') || ''
+      if (opt) { setOptimizedPrompt(opt); setShowOptimized(true) }
+    } catch { setError('Could not optimize prompt — try again') }
+  }
 
   const generate = async (e) => {
     e.preventDefault()
@@ -265,7 +303,7 @@ useEffect(() => {
       const w = resolution === 'Custom' ? parseInt(customW) || 512 : (res?.w || 512)
       const h = resolution === 'Custom' ? parseInt(customH) || 512 : (res?.h || 512)
       const storyPages = pageTexts.map((text, i) => {
-        const imagePrompt = 'Children\'s book illustration, ' + stylePrefix + text
+        const imagePrompt = stylePrefix + text + '. ' + (allStyles.find(s => s.name === artStyle)?.desc || 'Children\'s book illustration') + ', detailed scene, consistent visual style, high quality, sharp focus'
         const imageUrl = `${POLLINATIONS}/image/${encodeURIComponent(imagePrompt.slice(0, 300))}?model=${imageModel}&width=${w}&height=${h}${key ? `&key=${encodeURIComponent(key)}` : ''}`
         const page = { pageNum: i + 1, text, imageUrl }
         if (generateAudio) {
@@ -305,9 +343,9 @@ useEffect(() => {
               <div className="logo">📖</div><h1>Enter API Key</h1>
               <p className="tagline">Paste your Pollinations secret key.</p>
               <div className="key-input-row">
-                <input type="text" value={pollenKey} onChange={(e) => setPollenKey(e.target.value)} placeholder="sk_..." className="input" />
-              </div>
-              <Button onClick={saveKey}>Start Creating</Button>
+ <input type="text" value={pollenKey} onChange={(e) => setPollenKey(e.target.value)} placeholder="sk_..." className="input" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); validateAndSaveKey() } }} />
+ </div>
+ <Button onClick={validateAndSaveKey}>Start Creating</Button>
               <Button variant="ghost" onClick={() => setShowKeyInput(false)}>← Back</Button>
               {error && <div className="error">{error}</div>}
             </>
@@ -340,6 +378,7 @@ useEffect(() => {
         {error && <div className="error">{error}</div>}
         {currentStory && currentStory.pages ? (
           <div className="story-viewer">
+            {loading && <div className="loading-overlay"><div className="spinner" /><span>{progressText || 'Generating...'}</span></div>}
             <Button variant="ghost" onClick={() => setCurrentStory(null)}>← Back</Button>
             <div className="story-viewer-header">
               <h2>{currentStory.title}</h2>
@@ -365,6 +404,15 @@ useEffect(() => {
             <div className="hero"><h2>Create a Storybook</h2><p>Enter a theme and watch AI write & illustrate your story</p></div>
             <form onSubmit={generate} className="generate-form">
               <input type="text" value={theme} onChange={(e) => setTheme(e.target.value)} placeholder="e.g., A dragon who loves baking cookies" className="input" />
+
+              <div className="optimize-row" style={{display:'flex',gap:'8px',alignItems:'center',marginBottom:'8px'}}>
+                <Button disabled={loading || !theme.trim()} onClick={optimizePromptText}>✨ Optimize prompt</Button>
+                {showOptimized && <>
+                  <Button variant="ghost" onClick={() => { setTheme(optimizedPrompt); setShowOptimized(false) }}>Accept</Button>
+                  <Button variant="ghost" onClick={() => setShowOptimized(false)}>Cancel</Button>
+                </>}
+              </div>
+              {showOptimized && <div className="optimized-prompt" style={{background:'var(--surface)',padding:'12px',borderRadius:'8px',marginBottom:'8px',fontSize:'14px',color:'var(--text1)'}}>{optimizedPrompt}</div>}
 
               <div className="model-row">
                 <div className="model-group">
