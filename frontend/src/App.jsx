@@ -116,7 +116,6 @@ export default function App() {
   const [showTextDropdown, setShowTextDropdown] = useState(false)
   const [showImageDropdown, setShowImageDropdown] = useState(false)
   const [pollenKey, setPollenKey] = useState(localStorage.getItem(POLLEN_KEY) || '')
-  const [showKeyInput, setShowKeyInput] = useState(false)
   const [customStyles, setCustomStyles] = useState(() => {
     try { return JSON.parse(localStorage.getItem(CUSTOM_STYLES_KEY) || '[]') } catch { return [] }
   })
@@ -181,15 +180,6 @@ useEffect(() => {
   const connect = () => {
     const params = new URLSearchParams({ redirect_uri: REDIRECT_URI, client_id: APP_KEY, scope: 'usage' })
     window.location.href = `https://enter.pollinations.ai/authorize?${params}`
-  }
-
-  const validateAndSaveKey = () => {
-    const key = pollenKey.trim()
-    if (!key) { setError('Please enter your API key'); return }
-    localStorage.setItem(POLLEN_KEY, key)
-    setPollenKey(key)
-    setShowKeyInput(false)
-    setError(null)
   }
 
   const saveCustomStyle = () => {
@@ -330,29 +320,14 @@ useEffect(() => {
     return (
       <div className="splash">
         <div className="splash-card">
-          {showKeyInput ? (
-            <>
-              <div className="logo">📖</div><h1>Enter API Key</h1>
-              <p className="tagline">Paste your Pollinations secret key.</p>
-              <div className="key-input-row">
-              <input type="text" value={pollenKey} onChange={(e) => setPollenKey(e.target.value)} placeholder="sk_..." className="input" autoComplete="off" name="story-apikey" />
- </div>
- <Button onClick={validateAndSaveKey}>Start Creating</Button>
-              <Button variant="ghost" onClick={() => setShowKeyInput(false)}>← Back</Button>
-              {error && <div className="error">{error}</div>}
-            </>
-          ) : (
-            <>
-              <div className="logo">📖</div><h1>StoryStudio</h1>
-              <span className="beta-badge">Still in Beta</span>
-              <p className="tagline">AI-powered storybooks in seconds.<br/>Connect your Pollinations account to start.</p>
-              <Button onClick={connect}>Connect with Pollinations</Button>
-              <Button variant="ghost" onClick={() => setShowKeyInput(true)}>Paste a key manually</Button>
-              {error && <div className="error">{error}</div>}
-              <p className="fine-print">Uses Pollinations.ai API</p>
-            </>
-          )}
+          <div className="logo">📖</div>
+          <h1>StoryStudio</h1>
+          <p className="tagline">AI-powered storybooks in seconds.</p>
+          <Button onClick={connect}>Connect to Pollinations</Button>
+          {error && <div className="error">{error}</div>}
+          <p className="fine-print">Uses Pollinations.ai API</p>
         </div>
+        <div className="splash-get-started">Get Started</div>
       </div>
     )
   }
